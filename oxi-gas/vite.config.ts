@@ -7,7 +7,7 @@ const port = Number(process.env.PORT || 3000);
 
 // Para GitHub Pages: si el repo se llama "oxi-gas", el base debe ser "/oxi-gas/"
 // Cambiá VITE_BASE_PATH en tu entorno o directamente acá si el nombre del repo es fijo.
-const basePath = process.env.BASE_PATH || process.env.VITE_BASE_PATH || "/";
+const basePath = process.env.BASE_PATH || process.env.VITE_BASE_PATH || "/OxigasWeb/";
 
 export default defineConfig({
   base: basePath,
