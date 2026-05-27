@@ -38,20 +38,21 @@ function normalize(value: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+type NormalizedProduct = Product & { normalized: string };
+
 function filterProducts(
-  products: readonly Product[],
+  products: readonly NormalizedProduct[],
   brand: BrandFilter,
   category: CategoryFilter,
   query: string,
-): Product[] {
+): NormalizedProduct[] {
   const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
   return products.filter((product) => {
     const matchesBrand = brand === ALL || product.brand === brand;
     const matchesCategory = category === ALL || product.category === category;
     if (!matchesBrand || !matchesCategory) return false;
     if (terms.length === 0) return true;
-    const haystack = normalize(`${product.name} ${product.code} ${product.brand}`);
-    return terms.every((term) => haystack.includes(term));
+    return terms.every((term) => product.normalized.includes(term));
   });
 }
 
@@ -66,9 +67,17 @@ export default function Productos() {
   const [category, setCategory] = useState<CategoryFilter>(ALL);
   const [query, setQuery] = useState<string>('');
 
+  // Pre-normalize products once to avoid recomputation
+  const normalizedProducts = useMemo<readonly NormalizedProduct[]>(() => {
+    return PRODUCTS.map((product) => ({
+      ...product,
+      normalized: normalize(`${product.name} ${product.code} ${product.brand}`),
+    }));
+  }, []);
+
   const filtered = useMemo(
-    () => filterProducts(PRODUCTS, brand, category, query),
-    [brand, category, query],
+    () => filterProducts(normalizedProducts, brand, category, query),
+    [normalizedProducts, brand, category, query],
   );
   const hasActiveFilters = brand !== ALL || category !== ALL || query.trim() !== '';
 
@@ -139,6 +148,7 @@ export default function Productos() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Buscá por nombre, código o marca (ej: teflon, WE6481, aligas)"
+                  aria-label="Buscar productos por nombre, código o marca"
                   className="w-full h-11 pl-10 pr-10 rounded-md border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-2))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-colors"
                 />
                 {query !== '' && (
@@ -161,7 +171,7 @@ export default function Productos() {
                 value={category}
                 onValueChange={(value) => setCategory(value as CategoryFilter)}
               >
-                <SelectTrigger id="filter-category" className="w-full h-11">
+                <SelectTrigger id="filter-category" className="w-full h-11" aria-label="Filtrar por categoría">
                   <SelectValue placeholder="Todas las categorías" />
                 </SelectTrigger>
                 <SelectContent>
@@ -177,7 +187,7 @@ export default function Productos() {
 
             <FilterField label="Marca" htmlFor="filter-brand" icon={<Building2 className="h-3.5 w-3.5" />}>
               <Select value={brand} onValueChange={(value) => setBrand(value as BrandFilter)}>
-                <SelectTrigger id="filter-brand" className="w-full h-11">
+                <SelectTrigger id="filter-brand" className="w-full h-11" aria-label="Filtrar por marca">
                   <SelectValue placeholder="Todas las marcas" />
                 </SelectTrigger>
                 <SelectContent>
@@ -377,6 +387,7 @@ function ProductCard({ product, index, selected, onToggle }: ProductCardProps) {
                   setFieldValues((prev) => ({ ...prev, cantidad: val }));
                 }}
                 placeholder="Ej: 2"
+                aria-label={`Cantidad de ${product.name}`}
                 className="h-9 px-3 rounded-md border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-colors"
               />
             </div>
@@ -398,6 +409,7 @@ function ProductCard({ product, index, selected, onToggle }: ProductCardProps) {
                     setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))
                   }
                   placeholder={field.placeholder ?? ''}
+                  aria-label={field.label}
                   className="h-9 px-3 rounded-md border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-colors"
                 />
               </div>

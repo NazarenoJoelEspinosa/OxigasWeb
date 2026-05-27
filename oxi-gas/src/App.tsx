@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Home from "@/pages/Home";
 import Productos from "@/pages/Productos";
 import NotFound from "@/pages/NotFound";
@@ -20,11 +21,13 @@ function App() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "") || "";
 
   return (
-    <TooltipProvider>
-      <WouterRouter base={base}>
-        <Router />
-      </WouterRouter>
-    </TooltipProvider>
+    <ErrorBoundary>
+      <TooltipProvider>
+        <WouterRouter base={base}>
+          <Router />
+        </WouterRouter>
+      </TooltipProvider>
+    </ErrorBoundary>
   );
 }
 

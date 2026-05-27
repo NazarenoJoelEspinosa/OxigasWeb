@@ -127,8 +127,7 @@ export function QuoteForm() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2, duration: 0.6 }}
-            className="bg-[hsl(var(--surface-1))] rounded-3xl p-8 md:p-12 shadow-2xl border border-[hsl(var(--surface-3))]"
-          >
+            className="bg-[hsl(var(--surface-1))] rounded-3xl p-8 md:p-12 shadow-2xl border border-[hsl(var(--surface-3))]">
             <form onSubmit={handleSubmit} noValidate className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -144,6 +143,7 @@ export function QuoteForm() {
                     className={fieldClass('nombre')}
                     placeholder="Juan Pérez"
                     autoComplete="name"
+                    aria-label="Nombre completo"
                   />
                   {touched.nombre && errors.nombre && (
                     <p className="text-xs text-red-400 mt-1">{errors.nombre}</p>
@@ -162,6 +162,7 @@ export function QuoteForm() {
                     className={fieldClass('empresa')}
                     placeholder="Nombre de tu empresa"
                     autoComplete="organization"
+                    aria-label="Empresa (opcional)"
                   />
                 </div>
               </div>
@@ -181,6 +182,7 @@ export function QuoteForm() {
                     placeholder="Ej: 1123456789"
                     autoComplete="tel"
                     inputMode="numeric"
+                    aria-label="Teléfono"
                   />
                   {touched.telefono && errors.telefono && (
                     <p className="text-xs text-red-400 mt-1">{errors.telefono}</p>
@@ -199,6 +201,7 @@ export function QuoteForm() {
                     className={fieldClass('direccion')}
                     placeholder="Ej: Acosta 1906, Ciudadela"
                     autoComplete="street-address"
+                    aria-label="Dirección (opcional)"
                   />
                 </div>
               </div>
@@ -215,6 +218,7 @@ export function QuoteForm() {
                   rows={5}
                   className={`${fieldClass('mensaje')} resize-none`}
                   placeholder="Contanos tu consulta, qué producto buscás, si necesitás un presupuesto, etc."
+                  aria-label="Consulta o mensaje"
                 />
                 {touched.mensaje && errors.mensaje && (
                   <p className="text-xs text-red-400 mt-1">{errors.mensaje}</p>
