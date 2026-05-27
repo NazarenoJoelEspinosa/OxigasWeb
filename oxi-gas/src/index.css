@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Barlow', sans-serif;
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-whatsapp: hsl(var(--whatsapp));
+  --color-whatsapp-hover: hsl(var(--whatsapp-hover));
+}
+
+:root {
+  --background: 212 53% 11%;
+  --foreground: 210 33% 95%;
+  --primary: 208 56% 41%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 212 45% 19%;
+  --secondary-foreground: 210 33% 95%;
+  --muted: 219 40% 14%;
+  --muted-foreground: 211 24% 64%;
+  --accent: 208 56% 41%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 24 100% 41%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 213 35% 25%;
+  --input: 213 35% 25%;
+  --ring: 208 56% 41%;
+  --card: 219 40% 14%;
+  --card-foreground: 210 33% 95%;
+  --whatsapp: 142 70% 49%;
+  --whatsapp-hover: 142 70% 43%;
+  --radius: 0.5rem;
+
+  --surface-0: 212 53% 11%;
+  --surface-1: 212 45% 18%;
+  --surface-2: 214 40% 14%;
+  --surface-3: 213 35% 25%;
+  --text-main: 210 33% 95%;
+  --text-soft: 211 24% 64%;
+  --hero-overlay: 212 53% 11%;
+}
+
+html.light {
+  color-scheme: light;
+  --background: 36 100% 98%;
+  --foreground: 24 28% 18%;
+  --primary: 27 95% 54%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 34 100% 94%;
+  --secondary-foreground: 24 28% 18%;
+  --muted: 34 55% 96%;
+  --muted-foreground: 24 18% 42%;
+  --accent: 30 95% 54%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 10 80% 54%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 28 40% 82%;
+  --input: 28 40% 82%;
+  --ring: 27 95% 54%;
+  --card: 0 0% 100%;
+  --card-foreground: 24 28% 18%;
+
+  --surface-0: 36 100% 98%;
+  --surface-1: 0 0% 100%;
+  --surface-2: 34 100% 94%;
+  --surface-3: 28 40% 82%;
+  --text-main: 24 28% 18%;
+  --text-soft: 24 18% 42%;
+  --hero-overlay: 28 95% 24%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased font-sans selection:bg-primary/30 selection:text-white;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+@keyframes brandsScroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.brands-track {
+  animation: brandsScroll 38s linear infinite;
+}
+
+.brands-track:hover {
+  animation-play-state: paused;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
