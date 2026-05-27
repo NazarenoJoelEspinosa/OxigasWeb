@@ -32,7 +32,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          BASE_PATH: /oxi-gas-web/
+            BASE_PATH: /OxigasWeb/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
