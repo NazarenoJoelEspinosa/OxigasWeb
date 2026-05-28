@@ -65,7 +65,7 @@ export default function AdminDashboard() {
               <p className="text-xs text-muted-foreground">OxigasWeb</p>
             </div>
             <div className="flex items-center gap-4">
-              <a href="/" className="text-sm text-muted-foreground hover:text-foreground hidden sm:block">← Ver sitio</a>
+             <a href="/OxigasWeb/" className="text-sm text-muted-foreground hover:text-foreground hidden sm:block">← Ver sitio</a>
               <button
                 onClick={async () => { await supabase.auth.signOut(); setLocation('/admin/login'); }}
                 className="text-sm text-destructive hover:underline">
