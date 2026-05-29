@@ -30,7 +30,13 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   const [descripcion, setDescripcion] = useState(producto?.description ?? '');
   const [marca, setMarca] = useState(producto?.brand ?? '');
   const [categoria, setCategoria] = useState(producto?.category ?? '');
-  const [imagenesActuales, setImagenesActuales] = useState<string[]>(producto?.images ?? []);
+  const [imagenesActuales, setImagenesActuales] = useState<string[]>(
+  Array.isArray(producto?.images)
+    ? producto.images
+    : producto?.images
+      ? [producto.images as unknown as string]
+      : []
+);
   const [customFields, setCustomFields] = useState<CustomField[]>(producto?.custom_fields ?? []);
   const [archivoImagen, setArchivoImagen] = useState<File | null>(null);
   const [previsualizacion, setPrevisualizacion] = useState<string | null>(null);
