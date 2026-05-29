@@ -5,17 +5,17 @@ export type Theme = 'dark' | 'light';
 const STORAGE_KEY = 'oxi-gas-theme-v2';
 
 function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'light';
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored === 'light' || stored === 'dark' ? stored : 'dark';
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle('light', theme === 'light');
+    document.documentElement.classList.toggle('light', theme === 'light');
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 

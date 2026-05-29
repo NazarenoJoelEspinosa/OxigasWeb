@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { MessageCircle, ShieldCheck, Truck, Wrench, MapPin } from 'lucide-react';
 import { WHATSAPP_URL } from '@/config/constants';
+import { OpenStatus } from '../ui/OpenStatus';
 
 const trustBadges = [
   { icon: ShieldCheck, label: 'Marcas líderes' },
@@ -47,7 +48,9 @@ export function Hero() {
               />
               Ferretería Industrial Profesional
             </motion.div>
-
+              <div className="mb-4">
+                <OpenStatus />
+              </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-[hsl(var(--text-main))] tracking-tight mb-5 sm:mb-6 leading-[1.05]">
               Gases Comprimidos y{' '}
               <span className="text-primary">Herramientas</span> Industriales
@@ -128,8 +131,8 @@ export function Hero() {
                   Por ahora queda el placeholder de Unsplash hasta que la subas.
                 */}
                 <img
-                  src="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=900&q=80"
-                  alt="Local OXI-GAS Ferretería Industrial - Caseros"
+                  src="/images/local.jpg"
+                  alt="Local OXI-GAS — Acosta 1906, Ciudadela"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[hsl(var(--surface-0))]/80 via-transparent to-transparent" />

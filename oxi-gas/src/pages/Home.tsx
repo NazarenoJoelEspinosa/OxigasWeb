@@ -12,14 +12,11 @@ import { Brands } from '@/components/sections/Brands';
 import { TechnicalConsulting } from '@/components/sections/TechnicalConsulting';
 import { Hours } from '@/components/sections/Hours';
 import { QuoteForm } from '@/components/features/QuoteForm';
-import { useTheme } from '@/hooks/useTheme';
 
 export default function Home() {
-  const { theme, toggleTheme } = useTheme();
-
   return (
     <main className="min-h-screen bg-background relative">
-      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <Header />
       <Hero />
       <StatsBar />
       <CatalogPreview />

@@ -60,12 +60,10 @@ export function Footer() {
             <ul className="space-y-4">
               <li>
                 <a
-                  href={WHATSAPP_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center text-[hsl(var(--text-soft))] hover:text-[#25d366] transition-colors group"
+                  href="tel:+5491134446666"
+                  className="flex items-center text-[hsl(var(--text-soft))] hover:text-primary transition-colors group"
                 >
-                  <div className="w-10 h-10 bg-[hsl(var(--surface-2))] rounded-full flex items-center justify-center mr-4 group-hover:bg-[#25d366]/20 transition-colors shrink-0">
+                  <div className="w-10 h-10 bg-[hsl(var(--surface-2))] rounded-full flex items-center justify-center mr-4 group-hover:bg-primary/20 transition-colors shrink-0">
                     <Phone className="w-5 h-5" />
                   </div>
                   <span className="text-lg">{CONTACT.phone}</span>

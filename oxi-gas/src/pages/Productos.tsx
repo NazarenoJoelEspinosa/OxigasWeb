@@ -1,23 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'wouter';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Building2, Check, PackageSearch, Plus, Search, SlidersHorizontal, Tag, X } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, MessageCircle, Search, SlidersHorizontal, X, ZoomIn } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
 import { QuoteCart } from '@/components/features/QuoteCart';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useTheme } from '@/hooks/useTheme';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { supabase } from '@/lib/supabaseClient';
+import { whatsappUrl } from '@/config/constants';
 
-type CustomField = {
-  key: string;
-  label: string;
-  placeholder?: string;
-};
+type CustomField = { key: string; label: string; placeholder?: string };
 
 type Product = {
   id: string;
@@ -30,258 +23,312 @@ type Product = {
   custom_fields?: CustomField[];
 };
 
-const ALL = 'all' as const;
-type Filter = string | typeof ALL;
+const ALL = 'all';
 
-function normalize(value: string): string {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-type NormalizedProduct = Product & { normalized: string };
-
-function filterProducts(products: NormalizedProduct[], brand: Filter, category: Filter, query: string): NormalizedProduct[] {
-  const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
-  return products.filter((p) => {
-    if (brand !== ALL && p.brand !== brand) return false;
-    if (category !== ALL && p.category !== category) return false;
-    if (terms.length === 0) return true;
-    return terms.every((t) => p.normalized.includes(t));
-  });
+function normalize(v: string) {
+  return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 export default function Productos() {
-  const { theme, toggleTheme } = useTheme();
   const cart = useQuoteCart();
-  const [brand, setBrand] = useState<Filter>(ALL);
-  const [category, setCategory] = useState<Filter>(ALL);
-  const [query, setQuery] = useState('');
+  const [location] = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
-  const [cargando, setCargando] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [brand, setBrand] = useState(ALL);
+  const [category, setCategory] = useState(ALL);
+  const [selected, setSelected] = useState<Product | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cat = params.get('categoria');
+    if (cat) setCategory(cat);
+  }, [location]);
 
   useEffect(() => {
     supabase.from('products').select('*').order('name', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) setProducts(data as Product[]);
-        setCargando(false);
+        setLoading(false);
       });
   }, []);
 
-  const normalizedProducts = useMemo<NormalizedProduct[]>(() =>
-    products.map((p) => ({ ...p, normalized: normalize(`${p.name} ${p.code} ${p.brand ?? ''}`) })),
-    [products]);
+  const categories = useMemo(() =>
+    [...new Set(products.map(p => p.category).filter(Boolean) as string[])].sort(), [products]);
 
-  const brands = useMemo(() => [...new Set(products.map((p) => p.brand).filter(Boolean) as string[])].sort(), [products]);
-  const categories = useMemo(() => [...new Set(products.map((p) => p.category).filter(Boolean) as string[])].sort(), [products]);
-  const filtered = useMemo(() => filterProducts(normalizedProducts, brand, category, query), [normalizedProducts, brand, category, query]);
-  const hasActiveFilters = brand !== ALL || category !== ALL || query.trim() !== '';
-  const resetFilters = () => { setBrand(ALL); setCategory(ALL); setQuery(''); };
+  const brands = useMemo(() =>
+    [...new Set(products.map(p => p.brand).filter(Boolean) as string[])].sort(), [products]);
+
+  const filtered = useMemo(() => {
+    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
+    return products.filter(p => {
+      if (category !== ALL && p.category !== category) return false;
+      if (brand !== ALL && p.brand !== brand) return false;
+      if (terms.length === 0) return true;
+      const haystack = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
+      return terms.every(t => haystack.includes(t));
+    });
+  }, [products, category, brand, query]);
+
+  const resetFilters = () => { setQuery(''); setBrand(ALL); setCategory(ALL); };
+  const hasFilters = query !== '' || brand !== ALL || category !== ALL;
 
   return (
-    <main className="min-h-screen bg-background relative">
-      <Header theme={theme} onToggleTheme={toggleTheme} />
-      <section className="pt-32 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))] hover:text-primary transition-colors">
-          <ArrowLeft className="h-4 w-4" />Volver al inicio
-        </Link>
-        <div className="mt-6 flex flex-col gap-4">
-          <span className="text-xs font-semibold uppercase tracking-[0.25em] text-primary">Catálogo</span>
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-[hsl(var(--text-main))] tracking-tight">Todos nuestros productos</h1>
-          <p className="text-lg text-[hsl(var(--text-soft))] max-w-2xl">Filtrá por marca o categoría para encontrar lo que necesitás. Para cotizar o consultar stock, escribinos por WhatsApp.</p>
-        </div>
-      </section>
+    <main className="min-h-screen bg-background">
+      <Header />
 
-      <section className="pb-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] p-5 sm:p-6 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5 pb-5 border-b border-[hsl(var(--surface-3))]">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold uppercase tracking-[0.2em]">Filtrar por</h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <Badge className="bg-primary/15 text-primary border-primary/30 px-3 py-1 text-sm font-bold">
-                {filtered.length} {filtered.length === 1 ? 'producto' : 'productos'}
-              </Badge>
-              {hasActiveFilters && (
-                <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--text-soft))] hover:text-primary transition-colors">
-                  <X className="h-3.5 w-3.5" />Limpiar
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-24">
+        {/* Breadcrumb */}
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-[hsl(var(--text-soft))] hover:text-primary transition-colors mb-6">
+          <ArrowLeft className="h-4 w-4" /> Volver al inicio
+        </Link>
+
+        <div className="flex flex-col gap-2 mb-8">
+          <h1 className="text-4xl font-extrabold text-[hsl(var(--text-main))]">Productos</h1>
+          <p className="text-[hsl(var(--text-soft))]">
+            {loading ? 'Cargando...' : `${filtered.length} producto${filtered.length !== 1 ? 's' : ''}`}
+            {hasFilters && <button onClick={resetFilters} className="ml-3 text-primary text-sm hover:underline">Limpiar filtros</button>}
+          </p>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+
+          {/* SIDEBAR */}
+          <aside className="w-full lg:w-64 shrink-0">
+            {/* Búsqueda */}
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
+              <input
+                type="search"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Buscar productos..."
+                className="w-full h-11 pl-10 pr-4 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="h-4 w-4 text-[hsl(var(--text-soft))]" />
                 </button>
               )}
             </div>
-          </div>
 
-          <div className="mb-4">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="filter-search" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">
-                <Search className="h-3.5 w-3.5" />Buscar
-              </label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
-                <input id="filter-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscá por nombre, código o marca"
-                  className="w-full h-11 pl-10 pr-10 rounded-md border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-2))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-colors" />
-                {query !== '' && (
-                  <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded-full text-[hsl(var(--text-soft))] hover:text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-3))] transition-colors">
-                    <X className="h-3.5 w-3.5" />
+            {/* Categorías */}
+            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden mb-4">
+              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
+              </div>
+              <div className="py-2">
+                <button
+                  onClick={() => setCategory(ALL)}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                >
+                  Todas las categorías
+                </button>
+                {categories.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setCategory(c)}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === c ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                  >
+                    {c}
                   </button>
-                )}
+                ))}
               </div>
             </div>
+
+            {/* Marcas */}
+            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Marcas</p>
+              </div>
+              <div className="py-2">
+                <button
+                  onClick={() => setBrand(ALL)}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${brand === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                >
+                  Todas las marcas
+                </button>
+                {brands.map(b => (
+                  <button
+                    key={b}
+                    onClick={() => setBrand(b)}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${brand === b ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* GRID */}
+          <div className="flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-32">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-32 text-center">
+                <SlidersHorizontal className="h-12 w-12 text-[hsl(var(--text-soft))] mb-4" />
+                <h2 className="text-xl font-bold text-[hsl(var(--text-main))]">Sin resultados</h2>
+                <p className="text-[hsl(var(--text-soft))] mt-2">Probá con otros filtros o consultanos directamente.</p>
+                <button onClick={resetFilters} className="mt-4 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
+                  Ver todos
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filtered.map((product, i) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    index={i}
+                    onOpen={() => setSelected(product)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="filter-category" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">
-                <Tag className="h-3.5 w-3.5" />Categoría
-              </label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger id="filter-category" className="w-full h-11"><SelectValue placeholder="Todas las categorías" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>Todas las categorías</SelectItem>
-                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="filter-brand" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">
-                <Building2 className="h-3.5 w-3.5" />Marca
-              </label>
-              <Select value={brand} onValueChange={setBrand}>
-                <SelectTrigger id="filter-brand" className="w-full h-11"><SelectValue placeholder="Todas las marcas" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>Todas las marcas</SelectItem>
-                  {brands.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {hasActiveFilters && (
-            <div className="flex flex-wrap items-center gap-2 mt-5 pt-5 border-t border-[hsl(var(--surface-3))]">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--text-soft))]">Activos:</span>
-              {query.trim() !== '' && <FilterChip label={`"${query.trim()}"`} onRemove={() => setQuery('')} />}
-              {category !== ALL && <FilterChip label={category} onRemove={() => setCategory(ALL)} />}
-              {brand !== ALL && <FilterChip label={brand} onRemove={() => setBrand(ALL)} />}
-            </div>
-          )}
         </div>
-
-        <div className="mt-10">
-          {cargando ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4" />
-              <p className="text-[hsl(var(--text-soft))]">Cargando productos...</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <EmptyState onReset={resetFilters} />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index}
-                  selected={cart.has(product.code)}
-                  onToggle={(fv) => cart.toggle(product.code, fv)} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+      </div>
 
       <Footer />
       <WhatsAppButton />
       <QuoteCart cart={cart} />
+
+      {/* MODAL */}
+      <AnimatePresence>
+        {selected && (
+          <ProductModal product={selected} cart={cart} onClose={() => setSelected(null)} />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
-function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+function ProductCard({ product, index, onOpen }: { product: Product; index: number; onOpen: () => void }) {
+  const hasImage = product.images && product.images.length > 0;
   return (
-    <button type="button" onClick={onRemove} className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold px-3 py-1.5 border border-primary/30 transition-colors">
-      {label}<X className="h-3 w-3" />
-    </button>
-  );
-}
-
-function ProductCard({ product, index, selected, onToggle }: { product: Product; index: number; selected: boolean; onToggle: (fv?: Record<string, string>) => void }) {
-  const hasCustomFields = product.custom_fields && product.custom_fields.length > 0;
-
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = { cantidad: '' };
-    product.custom_fields?.forEach((f) => { initial[f.key] = ''; });
-    return initial;
-  });
-
-  const cantidadFilled = fieldValues['cantidad']?.trim() !== '';
-  const customFilled = !hasCustomFields || product.custom_fields!.every((f) => fieldValues[f.key]?.trim() !== '');
-  const allFilled = cantidadFilled && customFilled;
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.4) }}>
-      <Card className={`h-full transition-all duration-300 hover:shadow-lg ${selected ? 'border-primary/70 bg-[hsl(var(--surface-2))] ring-2 ring-primary/30' : 'border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] hover:border-primary/60'}`}>
-        <CardHeader className="gap-3">
-          {product.images?.[0] && (
-            <img src={product.images[0]} alt={product.name} className="w-full h-40 object-contain rounded-lg bg-[hsl(var(--surface-2))]" />
-          )}
-          <div className="flex items-start justify-between gap-2">
-            {product.category && <Badge variant="outline" className="uppercase tracking-wider text-[10px]">{product.category}</Badge>}
-            {hasCustomFields && <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 uppercase tracking-wider text-[10px]">A medida</Badge>}
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
+      onClick={onOpen}
+      className="group cursor-pointer bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-hidden"
+    >
+      {/* Imagen */}
+      <div className="relative aspect-square bg-[hsl(var(--surface-2))] overflow-hidden">
+        {hasImage ? (
+          <img
+            src={product.images![0]}
+            alt={product.name}
+            loading="lazy"
+            className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[hsl(var(--text-soft))]">
+            <span className="text-3xl">📦</span>
           </div>
-          <CardTitle className="text-lg text-[hsl(var(--text-main))] leading-snug">{product.name}</CardTitle>
-          {product.brand && <CardDescription className="text-sm text-[hsl(var(--text-soft))]">{product.brand}</CardDescription>}
-        </CardHeader>
+        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+          <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+        </div>
+      </div>
 
-        <CardContent className="flex flex-col gap-4">
-          <div className="inline-flex items-center gap-2 text-xs font-mono text-[hsl(var(--text-soft))]">
-            <span className="uppercase tracking-wider font-semibold">Código:</span>
-            <span className="text-[hsl(var(--text-main))]">{product.code}</span>
-          </div>
-          {product.description && <p className="text-xs text-[hsl(var(--text-soft))] line-clamp-2">{product.description}</p>}
-
-          <div className={`flex flex-col gap-2.5 p-3 rounded-lg border ${hasCustomFields ? 'bg-amber-500/5 border-amber-500/20' : 'bg-[hsl(var(--surface-2))] border-[hsl(var(--surface-3))]'}`}>
-            {hasCustomFields && <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Completá las medidas para cotizar</p>}
-
-            <div className="flex flex-col gap-1">
-              <label htmlFor={`${product.id}-cantidad`} className="text-xs font-semibold text-[hsl(var(--text-soft))]">Cantidad</label>
-              <input id={`${product.id}-cantidad`} type="text" inputMode="numeric"
-                value={fieldValues['cantidad'] ?? ''}
-                onChange={(e) => setFieldValues((prev) => ({ ...prev, cantidad: e.target.value.replace(/[^0-9]/g, '') }))}
-                placeholder="Ej: 2"
-                className="h-9 px-3 rounded-md border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-colors" />
-            </div>
-
-            {hasCustomFields && product.custom_fields!.map((field) => (
-              <div key={field.key} className="flex flex-col gap-1">
-                <label htmlFor={`${product.id}-${field.key}`} className="text-xs font-semibold text-[hsl(var(--text-soft))]">{field.label}</label>
-                <input id={`${product.id}-${field.key}`} type="text"
-                  value={fieldValues[field.key] ?? ''}
-                  onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                  placeholder={field.placeholder ?? ''}
-                  className="h-9 px-3 rounded-md border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-colors" />
-              </div>
-            ))}
-          </div>
-
-          <button type="button" onClick={() => onToggle(fieldValues)} disabled={!allFilled && !selected}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold text-sm py-2.5 px-4 transition-colors border ${
-              selected ? 'bg-primary text-white border-primary hover:bg-primary/90'
-              : !allFilled ? 'bg-transparent text-[hsl(var(--text-soft))] border-[hsl(var(--surface-3))] opacity-50 cursor-not-allowed'
-              : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
-            }`}>
-            {selected ? <><Check className="w-4 h-4" />Agregado a la cotización</> : <><Plus className="w-4 h-4" />Agregar a la cotización</>}
-          </button>
-        </CardContent>
-      </Card>
+      {/* Info */}
+      <div className="p-3">
+        {product.category && (
+          <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">{product.category}</p>
+        )}
+        <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{product.name}</p>
+        {product.brand && (
+          <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>
+        )}
+        <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
+      </div>
     </motion.div>
   );
 }
 
-function EmptyState({ onReset }: { onReset: () => void }) {
+function ProductModal({ product, cart, onClose }: { product: Product; cart: ReturnType<typeof useQuoteCart>; onClose: () => void }) {
+  const hasImage = product.images && product.images.length > 0;
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({ cantidad: '' });
+  const hasCustomFields = product.custom_fields && product.custom_fields.length > 0;
+
+  const message = `Hola OXI-GAS, quiero consultar por:\n*${product.name}*\nCódigo: ${product.code}${product.brand ? `\nMarca: ${product.brand}` : ''}`;
+
   return (
-    <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-[hsl(var(--surface-3))]">
-      <PackageSearch className="h-12 w-12 text-[hsl(var(--text-soft))] mb-4" />
-      <h2 className="text-xl font-bold text-[hsl(var(--text-main))]">No encontramos productos con esos filtros</h2>
-      <p className="mt-2 text-[hsl(var(--text-soft))] max-w-md">Probá con otra combinación o consultanos directamente.</p>
-      <button type="button" onClick={onReset} className="mt-6 inline-flex items-center justify-center rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-sm py-2.5 px-5 transition-colors">
-        Limpiar filtros
-      </button>
-    </div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+      className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-[hsl(var(--surface-1))] rounded-3xl border border-[hsl(var(--surface-3))] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      >
+        {/* Header modal */}
+        <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--surface-3))]">
+          <span className="text-xs font-bold uppercase tracking-wider text-primary">{product.category}</span>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-[hsl(var(--surface-2))] transition-colors">
+            <X className="w-5 h-5 text-[hsl(var(--text-main))]" />
+          </button>
+        </div>
+
+        {/* Imagen */}
+        <div className="bg-[hsl(var(--surface-2))] aspect-video flex items-center justify-center">
+          {hasImage ? (
+            <img src={product.images![0]} alt={product.name} className="w-full h-full object-contain p-6" />
+          ) : (
+            <span className="text-6xl">📦</span>
+          )}
+        </div>
+
+        {/* Contenido */}
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-[hsl(var(--text-main))] mb-1">{product.name}</h2>
+          {product.brand && <p className="text-sm text-[hsl(var(--text-soft))] mb-1">{product.brand}</p>}
+          <p className="text-xs font-mono text-[hsl(var(--text-soft))]/60 mb-4">Código: {product.code}</p>
+
+          {product.description && (
+            <p className="text-sm text-[hsl(var(--text-soft))] leading-relaxed mb-6 border-l-2 border-primary/30 pl-3">
+              {product.description}
+            </p>
+          )}
+
+          {hasCustomFields && (
+            <div className="mb-4 space-y-3">
+              {product.custom_fields!.map(f => (
+                <div key={f.key}>
+                  <label className="text-xs font-semibold text-[hsl(var(--text-soft))] mb-1 block">{f.label}</label>
+                  <input
+                    type="text"
+                    placeholder={f.placeholder}
+                    value={fieldValues[f.key] ?? ''}
+                    onChange={e => setFieldValues(prev => ({ ...prev, [f.key]: e.target.value }))}
+                    className="w-full h-10 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          
+            href={whatsappUrl(message)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#25d366]/90 text-white font-bold py-3.5 px-6 rounded-xl transition-colors shadow-lg shadow-[#25d366]/20"
+          >
+            <MessageCircle className="w-5 h-5" />
+            Consultar por WhatsApp
+          </a>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
