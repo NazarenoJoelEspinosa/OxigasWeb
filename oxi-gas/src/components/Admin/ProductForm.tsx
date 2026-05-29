@@ -28,11 +28,11 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   const [categoria, setCategoria] = useState(producto?.category ?? '');
   const [imagenesActuales, setImagenesActuales] = useState<string[]>(
   Array.isArray(producto?.images)
-    ? producto.images
-    : producto?.images
-      ? [producto.images as unknown as string]
-      : []
-);
+    ? producto.images.filter(
+        (img): img is string => typeof img === 'string'
+      )
+    : []
+  );
   const [customFields, setCustomFields] = useState<CustomField[]>(producto?.custom_fields ?? []);
   const [archivoImagen, setArchivoImagen] = useState<File | null>(null);
   const [previsualizacion, setPrevisualizacion] = useState<string | null>(null);
@@ -80,7 +80,15 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
     try {
       let urlNueva: string | null = null;
       if (archivoImagen) { urlNueva = await subirImagen(); if (!urlNueva) { setGuardando(false); return; } }
-      const imagenesFinal = urlNueva ? [...imagenesActuales, urlNueva] : imagenesActuales;
+      
+      
+      const imagenesSeguras = Array.isArray(imagenesActuales)
+  ? imagenesActuales.filter(i => typeof i === 'string')
+  : [];
+
+const imagenesFinal = urlNueva
+  ? [...imagenesSeguras, urlNueva]
+  : imagenesSeguras;
       const camposLimpios = customFields
         .filter(c => c.label.trim() !== '')
         .map(c => ({
@@ -88,6 +96,11 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
           label: c.label.trim(),
           placeholder: c.placeholder?.trim() ?? '',
         }));
+        console.log('DEBUG IMAGES:', {
+  productoImages: producto?.images,
+  imagenesActuales,
+  imagenesFinal
+});
       const datos = {
         code: codigo.trim(), name: nombre.trim(), description: descripcion.trim(),
         brand: marca.trim(), category: categoria.trim(),
