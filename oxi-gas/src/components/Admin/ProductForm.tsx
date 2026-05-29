@@ -95,8 +95,15 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
         if (e) { setError('Error al crear: ' + e.message); return; }
       }
       alGuardar();
-    } catch (err) {
-      setError('Error inesperado al guardar.');
+    } catch (err: any) {
+      console.error('ERROR REAL:', err);
+
+      setError(
+        err?.message ||
+        err?.error_description ||
+        JSON.stringify(err) ||
+        'Error inesperado al guardar.'
+      );
     } finally { setGuardando(false); }
   };
 
