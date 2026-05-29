@@ -318,7 +318,7 @@ function ProductModal({ product, cart, onClose }: { product: Product; cart: Retu
             </div>
           )}
 
-          
+          <a
             href={whatsappUrl(message)}
             target="_blank"
             rel="noopener noreferrer"
