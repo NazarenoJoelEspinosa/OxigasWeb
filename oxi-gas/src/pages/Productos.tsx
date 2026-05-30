@@ -206,18 +206,27 @@ export default function Productos() {
   );
 }
 
-function ProductCard({ product, index, onOpen }: { product: Product; index: number; onOpen: () => void }) {
+ffunction ProductCard({ product, index, onOpen, cart }: { 
+  product: Product; 
+  index: number; 
+  onOpen: () => void;
+  cart: ReturnType<typeof useQuoteCart>;
+}) {
   const hasImage = product.images && product.images.length > 0;
+  const isInCart = cart.has(product.code);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
-      onClick={onOpen}
-      className="group cursor-pointer bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-hidden"
+      className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-hidden flex flex-col"
     >
-      {/* Imagen */}
-      <div className="relative aspect-square bg-[hsl(var(--surface-2))] overflow-hidden">
+      {/* Imagen — clickeable para abrir modal */}
+      <div
+        onClick={onOpen}
+        className="relative aspect-square bg-[hsl(var(--surface-2))] overflow-hidden cursor-pointer"
+      >
         {hasImage ? (
           <img
             src={product.images![0]}
@@ -235,8 +244,8 @@ function ProductCard({ product, index, onOpen }: { product: Product; index: numb
         </div>
       </div>
 
-      {/* Info */}
-      <div className="p-3">
+      {/* Info — clickeable para abrir modal */}
+      <div className="p-3 flex-1 cursor-pointer" onClick={onOpen}>
         {product.category && (
           <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">{product.category}</p>
         )}
@@ -245,6 +254,21 @@ function ProductCard({ product, index, onOpen }: { product: Product; index: numb
           <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>
         )}
         <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
+      </div>
+
+      {/* Botón cotización */}
+      <div className="px-3 pb-3">
+        <button
+          type="button"
+          onClick={() => cart.toggle(product.code)}
+          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
+            isInCart
+              ? 'bg-primary text-white border-primary'
+              : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
+          }`}
+        >
+          {isInCart ? '✓ En cotización' : '+ Agregar a cotización'}
+        </button>
       </div>
     </motion.div>
   );
