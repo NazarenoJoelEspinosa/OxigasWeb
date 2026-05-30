@@ -177,7 +177,7 @@ export default function Productos() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
                 {filtered.map((product, i) => (
                   <ProductCard
                     key={product.id}
@@ -221,7 +221,7 @@ function ProductCard({ product, index, onOpen, cart }: {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
-      className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-hidden flex flex-col"
+    className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-visible flex flex-col h-full"
     >
       {/* Imagen — clickeable para abrir modal */}
       <div
@@ -263,8 +263,8 @@ function ProductCard({ product, index, onOpen, cart }: {
           type="button"
           onClick={() => cart.toggle(product.code)}
           className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${isInCart
-              ? 'bg-primary text-white border-primary'
-              : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
+            ? 'bg-primary text-white border-primary'
+            : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
             }`}
         >
           {isInCart ? '✓ En cotización' : '+ Agregar a cotización'}
