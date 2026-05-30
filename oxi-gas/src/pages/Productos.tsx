@@ -255,8 +255,8 @@ function ProductCard({ product, index, onOpen, cart }: {
           <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>
         )}
         <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
-        {product.custom_fields && product.custom_fields.length > 0 && (
-          <p className="text-[10px] text-amber-500 font-semibold mt-1">⚙ Requiere medidas — tocá para ver</p>
+        {product.description && (
+          <p className="text-[11px] text-[hsl(var(--text-soft))] mt-1 line-clamp-1">{product.description}</p>
         )}
       </div>
 
