@@ -221,7 +221,7 @@ function ProductCard({ product, index, onOpen, cart }: {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
-    className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-visible flex flex-col h-full"
+      className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-visible flex flex-col h-full"
     >
       {/* Imagen — clickeable para abrir modal */}
       <div
@@ -255,6 +255,9 @@ function ProductCard({ product, index, onOpen, cart }: {
           <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>
         )}
         <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
+        {product.custom_fields && product.custom_fields.length > 0 && (
+          <p className="text-[10px] text-amber-500 font-semibold mt-1">⚙ Requiere medidas — tocá para ver</p>
+        )}
       </div>
 
       {/* Botón cotización */}
