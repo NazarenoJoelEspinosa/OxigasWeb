@@ -8,7 +8,7 @@ import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
 import { QuoteCart } from '@/components/features/QuoteCart';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { supabase } from '@/lib/supabaseClient';
-import { whatsappUrl } from '@/config/constants';
+import { whatsappUrl, WHATSAPP_URL } from '@/config/constants';
 
 type CustomField = { key: string; label: string; placeholder?: string };
 
