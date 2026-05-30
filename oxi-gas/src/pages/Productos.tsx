@@ -206,7 +206,7 @@ export default function Productos() {
   );
 }
 
-ffunction ProductCard({ product, index, onOpen, cart }: { 
+function ProductCard({ product, index, onOpen, cart }: { 
   product: Product; 
   index: number; 
   onOpen: () => void;
