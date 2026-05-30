@@ -184,6 +184,7 @@ export default function Productos() {
                     product={product}
                     index={i}
                     onOpen={() => setSelected(product)}
+                    cart={cart}
                   />
                 ))}
               </div>
@@ -206,9 +207,9 @@ export default function Productos() {
   );
 }
 
-function ProductCard({ product, index, onOpen, cart }: { 
-  product: Product; 
-  index: number; 
+function ProductCard({ product, index, onOpen, cart }: {
+  product: Product;
+  index: number;
   onOpen: () => void;
   cart: ReturnType<typeof useQuoteCart>;
 }) {
@@ -261,11 +262,10 @@ function ProductCard({ product, index, onOpen, cart }: {
         <button
           type="button"
           onClick={() => cart.toggle(product.code)}
-          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
-            isInCart
+          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${isInCart
               ? 'bg-primary text-white border-primary'
               : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
-          }`}
+            }`}
         >
           {isInCart ? '✓ En cotización' : '+ Agregar a cotización'}
         </button>
