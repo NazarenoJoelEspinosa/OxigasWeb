@@ -131,7 +131,7 @@ export function Hero() {
                   Por ahora queda el placeholder de Unsplash hasta que la subas.
                 */}
                 <img
-                  src="/images/local.jpg"
+                  src="./images/local.jpg"
                   alt="Local OXI-GAS — Acosta 1906, Ciudadela"
                   className="w-full h-full object-cover"
                 />
