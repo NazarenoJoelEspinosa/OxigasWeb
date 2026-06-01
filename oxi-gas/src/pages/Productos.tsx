@@ -133,9 +133,8 @@ export default function Productos() {
               <div className="py-2">
                 <button
                   onClick={() => setCategory(ALL)}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                    category === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                  }`}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                    }`}
                 >
                   Todas las categorías
                 </button>
@@ -143,9 +142,8 @@ export default function Productos() {
                   <button
                     key={c}
                     onClick={() => setCategory(c)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                      category === c ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                    }`}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === c ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                      }`}
                   >
                     {c}
                   </button>
@@ -160,9 +158,8 @@ export default function Productos() {
               <div className="py-2">
                 <button
                   onClick={() => setBrand(ALL)}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                    brand === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                  }`}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${brand === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                    }`}
                 >
                   Todas las marcas
                 </button>
@@ -170,9 +167,8 @@ export default function Productos() {
                   <button
                     key={b}
                     onClick={() => setBrand(b)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                      brand === b ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                    }`}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${brand === b ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                      }`}
                   >
                     {b}
                   </button>
@@ -242,6 +238,7 @@ function ProductCard({
   const hasImage = product.images && product.images.length > 0;
   const isInCart = cart.has(product.code);
   const [qty, setQty] = useState(1);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
 
   return (
     <motion.div
@@ -282,27 +279,41 @@ function ProductCard({
 
       <div className="px-3 pb-3 flex flex-col gap-2">
         {!isInCart && (
-          <input
-            type="number"
-            min="1"
-            value={qty}
-            onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
-            onClick={(e) => e.stopPropagation()}
-            placeholder="Cantidad"
-            className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
+          <>
+            {product.custom_fields && product.custom_fields.length > 0 && product.custom_fields.map(f => (
+              <input
+                key={f.key}
+                type="text"
+                placeholder={f.placeholder ?? f.label}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomValues(prev => ({ ...prev, [f.key]: val }));
+                }}
+                className="w-full h-9 px-3 rounded-lg border border-amber-500/40 bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+            ))}
+            <input
+              type="number"
+              min="1"
+              value={qty}
+              onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="Cantidad"
+              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </>
         )}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            cart.toggle(product.code, { cantidad: String(qty) });
+            cart.toggle(product.code, { cantidad: String(qty), ...customValues });
           }}
-          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
-            isInCart
-              ? 'bg-primary text-white border-primary'
-              : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
-          }`}
+          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${isInCart
+            ? 'bg-primary text-white border-primary'
+            : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
+            }`}
         >
           {isInCart ? '✓ En cotización' : '+ Agregar a cotización'}
         </button>
