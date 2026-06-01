@@ -5,7 +5,7 @@ import { ArrowLeft, MessageCircle, Search, SlidersHorizontal, X, ZoomIn } from '
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
-import { useQuoteCart } from '@/hooks/useQuoteCart';
+import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
 import { whatsappUrl } from '@/config/constants';
 
@@ -29,7 +29,7 @@ function normalize(v: string) {
 }
 
 export default function Productos() {
-  const cart = useQuoteCart();
+  const cart = useCart();
   const [location] = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,7 +237,7 @@ function ProductCard({
   product: Product;
   index: number;
   onOpen: () => void;
-  cart: ReturnType<typeof useQuoteCart>;
+  cart: ReturnType<typeof useCart>;
 }) {
   const hasImage = product.images && product.images.length > 0;
   const isInCart = cart.has(product.code);
@@ -317,7 +317,7 @@ function ProductModal({
   onClose,
 }: {
   product: Product;
-  cart: ReturnType<typeof useQuoteCart>;
+  cart: ReturnType<typeof useCart>;
   onClose: () => void;
 }) {
   const hasImage = product.images && product.images.length > 0;
