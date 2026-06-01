@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useThemeContext } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
 import { QuoteCart } from '@/components/features/QuoteCart';
-import oxiGasLogo from '@assets/logo-v2.png';
+import oxiGasLogo from '@assets/logo_oxigas.png';
 
 function useHashNavigate() {
   const [, setLocation] = useLocation();
