@@ -67,7 +67,7 @@ export function Header() {
             <img
               src={oxiGasLogo}
               alt="OXI-GAS Ferretería Industrial"
-              className="h-12 sm:h-14 w-auto object-contain transition-transform hover:scale-[1.02]"
+             className="h-16 sm:h-20 w-auto object-contain transition-transform hover:scale-[1.02]"
             />
           </Link>
 
