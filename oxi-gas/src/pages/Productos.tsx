@@ -5,7 +5,6 @@ import { ArrowLeft, MessageCircle, Search, SlidersHorizontal, X, ZoomIn } from '
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
-import { QuoteCart } from '@/components/features/QuoteCart';
 import { useQuoteCart } from '@/hooks/useQuoteCart';
 import { supabase } from '@/lib/supabaseClient';
 import { whatsappUrl } from '@/config/constants';
@@ -219,7 +218,6 @@ export default function Productos() {
 
       <Footer />
       <WhatsAppButton />
-      <QuoteCart cart={cart} />
 
       <AnimatePresence>
         {selected && (
