@@ -20,16 +20,20 @@ function Router() {
   );
 }
 
+import { CartProvider } from '@/context/CartContext';
+
 function App() {
-  const base = import.meta.env.BASE_URL.replace(/\/$/, "") || "";
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '') || '';
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <TooltipProvider>
-          <WouterRouter base={base}>
-            <Router />
-          </WouterRouter>
-        </TooltipProvider>
+        <CartProvider>
+          <TooltipProvider>
+            <WouterRouter base={base}>
+              <Router />
+            </WouterRouter>
+          </TooltipProvider>
+        </CartProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
