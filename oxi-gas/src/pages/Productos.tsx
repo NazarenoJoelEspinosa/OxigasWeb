@@ -11,6 +11,7 @@ import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
 import { whatsappUrl } from '@/config/constants';
+import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -39,61 +40,10 @@ type CategoryGroup = {
   slugs: string[];      // valores exactos del campo category en Supabase
 };
 
-const CATEGORY_GROUPS: CategoryGroup[] = [
-  {
-    label: 'Gases',
-    icon: '🔵',
-    slugs: ['gases', 'Gases', 'Gas comprimido', 'Gases comprimidos', 'Oxígeno', 'Acetileno', 'Argón', 'CO2'],
-  },
-  {
-    label: 'Soldadura',
-    icon: '🔥',
-    slugs: ['soldadura', 'Soldadura', 'Electrodos', 'Alambre MIG', 'Accesorios soldadura', 'Discos de corte'],
-  },
-  {
-    label: 'Herramientas Manuales',
-    icon: '🔨',
-    slugs: [
-      'herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales',
-      'manuales', 'Manuales', 'Llaves', 'Pinzas', 'Destornilladores',
-    ],
-  },
-  {
-    label: 'Herramientas Eléctricas',
-    icon: '⚡',
-    slugs: [
-      'herramientas electricas', 'Herramientas electricas', 'Herramientas Eléctricas',
-      'herramientas eléctricas', 'Eléctricas', 'Amoladoras', 'Taladros', 'Compresores',
-    ],
-  },
-  {
-    label: 'Fijación y Cables',
-    icon: '🔩',
-    slugs: [
-      'fijacion', 'Fijación', 'Fijacion', 'cables', 'Cables',
-      'Tornillos', 'Bulones', 'Fijación y Cables',
-    ],
-  },
-  {
-    label: 'Otros',
-    icon: '📦',
-    slugs: ['otros', 'Otros', 'EPP', 'Seguridad', 'Lubricantes', 'Adhesivos'],
-  },
-];
-
 const ALL = 'all';
 
 function normalize(v: string) {
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-/** Dado un valor de category, devuelve el índice del grupo al que pertenece (o -1) */
-function findGroup(category: string): number {
-  const n = normalize(category);
-  for (let i = 0; i < CATEGORY_GROUPS.length; i++) {
-    if (CATEGORY_GROUPS[i].slugs.some((s) => normalize(s) === n)) return i;
-  }
-  return -1; // sin grupo → "Otros" al final
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -101,6 +51,7 @@ function findGroup(category: string): number {
 export default function Productos() {
   const cart = useCart();
   const [location] = useLocation();
+  const { groups: CATEGORY_GROUPS } = useCategoryGroups();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +63,15 @@ export default function Productos() {
   const [openGroups, setOpenGroups] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
 
   const [selected, setSelected] = useState<Product | null>(null);
+
+  /** Dado un valor de category, devuelve el índice del grupo al que pertenece (o -1) */
+  const findGroup = (category: string): number => {
+    const n = normalize(category);
+    for (let i = 0; i < CATEGORY_GROUPS.length; i++) {
+      if (CATEGORY_GROUPS[i].slugs.some((s) => normalize(s) === n)) return i;
+    }
+    return -1; // sin grupo → "Otros" al final
+  };
 
   // Leer filtro de categoría desde URL (?categoria=xxx)
   useEffect(() => {

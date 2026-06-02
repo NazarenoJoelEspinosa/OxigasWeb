@@ -23,7 +23,7 @@
     "@supabase/supabase-js": "^2.47.0",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.14",
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.9.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
@@ -40,6 +40,5 @@
     "vite": "^7.3.0",
     "wouter": "^3.3.5",
     "zod": "^3.25.76"
-  },
-  "dependencies": {}
+  }
 }
