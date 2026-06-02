@@ -74,6 +74,16 @@ export default function Productos() {
     return -1; // sin grupo → "Otros" al final
   };
 
+  /** Obtiene todos los slugs válidos para una categoría (mapea genéricos como "herramientas" a sus subcategorías reales) */
+  const getCategorySlugs = (cat: string): string[] => {
+    if (cat === ALL) return [];
+    const groupIndex = findGroup(cat);
+    if (groupIndex >= 0) {
+      return CATEGORY_GROUPS[groupIndex].slugs;
+    }
+    return [cat]; // Si no coincide con grupo, devuelve como está (por si hay categoría personalizada)
+  };
+
   // Leer filtro de categoría desde URL (?categoria=xxx)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -124,8 +134,12 @@ export default function Productos() {
   // Filtrado final
   const filtered = useMemo(() => {
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
+    const allowedSlugs = getCategorySlugs(category);
     return products.filter((p) => {
-      if (category !== ALL && p.category !== category) return false;
+      if (category !== ALL) {
+        // Si hay filtro de categoría, verificar que el producto esté en los slugs permitidos
+        if (!allowedSlugs.includes(p.category || '')) return false;
+      }
       if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) return false;
       if (terms.length === 0) return true;
       const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);

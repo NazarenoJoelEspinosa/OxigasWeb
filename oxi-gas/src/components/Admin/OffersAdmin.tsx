@@ -31,6 +31,7 @@ function OfferForm({ initial, onSave, onCancel }: OfferFormProps) {
   const [discount, setDiscount] = useState(initial?.discount ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [icon, setIcon] = useState(initial?.icon ?? '⭐');
+  const [image, setImage] = useState(initial?.image ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -42,7 +43,7 @@ function OfferForm({ initial, onSave, onCancel }: OfferFormProps) {
     setSaving(true);
     setErr('');
     try {
-      await onSave({ ...initial, title, discount, description, icon, sort_order: initial?.sort_order ?? 0 });
+      await onSave({ ...initial, title, discount, description, icon, image: image || undefined, sort_order: initial?.sort_order ?? 0 });
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -97,6 +98,23 @@ function OfferForm({ initial, onSave, onCancel }: OfferFormProps) {
               placeholder="Descripción de la oferta"
               rows={3}
             />
+          </div>
+
+          {/* Imagen */}
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-[hsl(var(--text-main))]">URL de imagen (opcional)</label>
+            <input
+              type="url"
+              value={image}
+              onChange={(e) => setImage(e.target.value)}
+              className="w-full px-3 py-2 border border-[hsl(var(--surface-3))] rounded-lg bg-[hsl(var(--surface-0))] text-[hsl(var(--text-main))] focus:outline-none focus:border-primary"
+              placeholder="Ej: https://ejemplo.com/imagen.jpg"
+            />
+            {image && (
+              <div className="mt-2 p-2 rounded-lg overflow-hidden">
+                <img src={image} alt="Vista previa" className="w-full h-32 object-cover rounded" />
+              </div>
+            )}
           </div>
 
           {/* Emoji */}
@@ -192,14 +210,18 @@ export default function OffersAdmin() {
         // Insertar nueva oferta
         const { error } = await supabase
           .from('featured_offers')
-          .insert({ title: o.title, discount: o.discount, description: o.description, icon: o.icon, sort_order: offers.length });
+          .insert({ title: o.title, discount: o.discount, description: o.description, icon: o.icon, image: o.image || null, sort_order: offers.length });
         if (error) throw error;
         setMsg({ tipo: 'exito', texto: 'Oferta creada correctamente.' });
       } else if (o.id) {
         // Actualizar oferta existente
         const { error } = await supabase
           .from('featured_offers')
-          .update({ title: o.title, discount: o.discount, description: o.description, icon: o.icon })
+          .update({ title: o.title, discount: o.discount, description: o.description, icon: o.icon, image: o.image || null })
+          .eq('id', o.id);
+        if (error) throw error;
+        setMsg({ tipo: 'exito', texto: 'Oferta actualizada correctamente.' });
+      }
           .eq('id', o.id);
         if (error) throw error;
         setMsg({ tipo: 'exito', texto: 'Oferta actualizada correctamente.' });
@@ -267,6 +289,7 @@ export default function OffersAdmin() {
   discount text not null,
   description text not null,
   icon text not null default '⭐',
+  image text,
   sort_order int default 0,
   created_at timestamp default now()
 );

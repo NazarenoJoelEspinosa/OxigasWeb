@@ -11,6 +11,7 @@ export type Producto = {
   brand?: string;
   category?: string;
   price?: number;
+  visible?: boolean;
   images?: string[];
   custom_fields?: CustomField[];
 };
@@ -28,6 +29,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   const [marca, setMarca] = useState(producto?.brand ?? '');
   const [categoria, setCategoria] = useState(producto?.category ?? '');
   const [precio, setPrecio] = useState(producto?.price ?? '');
+  const [visible, setVisible] = useState(producto?.visible ?? true);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [categoriaPersonalizada, setCategoriaPersonalizada] = useState(false);
 
@@ -122,6 +124,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
         code: codigo.trim(), name: nombre.trim(), description: descripcion.trim(),
         brand: marca.trim(), category: categoria.trim(),
         price: categoria.toLowerCase() === 'ofertas' && precio ? parseFloat(String(precio)) : null,
+        visible: visible,
         images: imagenesFinal, custom_fields: camposLimpios,
       };
       if (producto?.id) {

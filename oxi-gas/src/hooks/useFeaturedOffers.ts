@@ -11,6 +11,7 @@
  *   discount  text not null,
  *   description text not null,
  *   icon      text not null default '⭐',
+ *   image     text,
  *   sort_order int not null default 0,
  *   created_at timestamp default now()
  * );
@@ -29,6 +30,7 @@ export type FeaturedOffer = {
   discount: string;
   description: string;
   icon: string;
+  image?: string;
   sort_order: number;
 };
 
