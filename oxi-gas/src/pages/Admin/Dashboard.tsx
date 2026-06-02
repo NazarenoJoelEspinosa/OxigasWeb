@@ -4,8 +4,9 @@ import { useLocation } from 'wouter';
 import AuthGuard from '@/components/Admin/AuthGuard';
 import ProductForm, { type Producto } from '@/components/Admin/ProductForm';
 import CategoryGroupsAdmin from '@/components/Admin/CategoryGroupsAdmin';
+import OffersAdmin from '@/components/Admin/OffersAdmin';
 
-type Tab = 'productos' | 'categorias';
+type Tab = 'productos' | 'categorias' | 'ofertas';
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
@@ -66,6 +67,7 @@ export default function AdminDashboard() {
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'productos',  label: 'Productos',   badge: productos.length },
     { id: 'categorias', label: 'Categorías del sidebar' },
+    { id: 'ofertas',    label: 'Ofertas destacadas' },
   ];
 
   return (
@@ -227,6 +229,9 @@ export default function AdminDashboard() {
 
           {/* ── TAB: Categorías ── */}
           {tab === 'categorias' && <CategoryGroupsAdmin />}
+
+          {/* ── TAB: Ofertas ── */}
+          {tab === 'ofertas' && <OffersAdmin />}
         </main>
       </div>
     </AuthGuard>

@@ -10,6 +10,7 @@ export type Producto = {
   description?: string;
   brand?: string;
   category?: string;
+  price?: number;
   images?: string[];
   custom_fields?: CustomField[];
 };
@@ -26,6 +27,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   const [descripcion, setDescripcion] = useState(producto?.description ?? '');
   const [marca, setMarca] = useState(producto?.brand ?? '');
   const [categoria, setCategoria] = useState(producto?.category ?? '');
+  const [precio, setPrecio] = useState(producto?.price ?? '');
   const [categorias, setCategorias] = useState<string[]>([]);
   const [categoriaPersonalizada, setCategoriaPersonalizada] = useState(false);
 
@@ -119,6 +121,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
       const datos = {
         code: codigo.trim(), name: nombre.trim(), description: descripcion.trim(),
         brand: marca.trim(), category: categoria.trim(),
+        price: categoria.toLowerCase() === 'ofertas' && precio ? parseFloat(String(precio)) : null,
         images: imagenesFinal, custom_fields: camposLimpios,
       };
       if (producto?.id) {
@@ -160,10 +163,17 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Descripción</label>
-          <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={2}
+          <label className="block text-sm font-medium mb-1">Descripción del producto</label>
+          <textarea 
+            value={descripcion} 
+            onChange={(e) => setDescripcion(e.target.value)} 
+            rows={4}
             className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-            placeholder="Descripción opcional..." />
+            placeholder="Descripción detallada del producto. Se mostrará en la página de productos..." 
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            {descripcion.length} caracteres
+          </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -172,6 +182,22 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
               className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Ej: BOSCH, FIXER..." />
           </div>
+          {categoria.toLowerCase() === 'ofertas' && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Precio (solo para ofertas)</label>
+              <input 
+                type="number" 
+                step="0.01"
+                min="0"
+                value={precio} 
+                onChange={(e) => setPrecio(e.target.value ? parseFloat(e.target.value) : '')}
+                className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Ej: 1500.00" 
+              />
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Categoría</label>
             {!categoriaPersonalizada ? (

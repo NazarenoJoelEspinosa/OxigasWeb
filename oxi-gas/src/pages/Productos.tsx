@@ -24,6 +24,7 @@ type Product = {
   description?: string;
   brand?: string;
   category?: string;
+  price?: number;
   images?: string[];
   custom_fields?: CustomField[];
 };
@@ -464,6 +465,11 @@ function ProductCard({
         )}
         <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{product.name}</p>
         {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
+        {product.price && product.category === 'ofertas' && (
+          <p className="text-sm font-bold text-primary mt-2">
+            ${product.price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+          </p>
+        )}
         <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
         {product.description && (
           <p className="text-[11px] text-[hsl(var(--text-soft))] mt-1 line-clamp-1">{product.description}</p>
@@ -570,6 +576,15 @@ function ProductModal({
             <p className="text-sm text-[hsl(var(--text-soft))] leading-relaxed mb-6 border-l-2 border-primary/30 pl-3">
               {product.description}
             </p>
+          )}
+
+          {product.price && product.category === 'ofertas' && (
+            <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20">
+              <p className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">Precio especial en oferta</p>
+              <p className="text-3xl font-bold text-primary">
+                ${product.price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              </p>
+            </div>
           )}
 
           {hasCustomFields && (

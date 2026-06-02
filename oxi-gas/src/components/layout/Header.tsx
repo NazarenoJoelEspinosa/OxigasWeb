@@ -46,10 +46,10 @@ export function Header() {
   ];
 
   const productLinks = [
-    { name: 'Gases comprimidos', hash: 'gases' },
-    { name: 'Máquinas', hash: 'maquinas' },
-    { name: 'Seguridad', hash: 'seguridad' },
-    { name: 'Servicios', hash: 'productos' },
+    { name: 'Gases comprimidos', href: '/productos?categoria=gases' },
+    { name: 'Máquinas', href: '/productos?categoria=herramientas' },
+    { name: 'Seguridad', href: '/productos?categoria=seguridad' },
+    { name: 'Ofertas', href: '/productos?categoria=ofertas' },
   ];
 
   return (
@@ -93,11 +93,10 @@ export function Header() {
                         Ver catálogo completo <ArrowRight size={16} />
                       </Link>
                       {productLinks.map((link) => (
-                        <button key={link.name} type="button"
-                          onClick={() => { setProductsOpen(false); navigateTo(link.hash); }}
-                          className="w-full text-left block rounded-xl px-4 py-3 text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))] hover:text-primary transition-colors bg-transparent border-none cursor-pointer">
+                        <Link key={link.name} href={link.href} onClick={() => setProductsOpen(false)}
+                          className="block rounded-xl px-4 py-3 text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))] hover:text-primary transition-colors">
                           {link.name}
-                        </button>
+                        </Link>
                       ))}
                     </div>
                   </motion.div>
@@ -167,13 +166,21 @@ export function Header() {
                   className="flex items-center justify-between px-4 py-3 rounded-lg bg-primary/10 text-primary font-semibold">
                   Ver catálogo completo <ArrowRight size={16} />
                 </Link>
-                {[...mainLinks, ...productLinks].map((link) => (
-                  <button key={link.name} type="button"
-                    onClick={() => { setMobileMenuOpen(false); navigateTo(link.hash); }}
-                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))] bg-transparent border-none cursor-pointer">
-                    {link.name}
-                  </button>
-                ))}
+                {[...mainLinks, ...productLinks].map((link) => {
+                  const isProductLink = 'href' in link;
+                  return isProductLink ? (
+                    <Link key={link.name} href={link.href} onClick={() => setMobileMenuOpen(false)}
+                      className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))]">
+                      {link.name}
+                    </Link>
+                  ) : (
+                    <button key={link.name} type="button"
+                      onClick={() => { setMobileMenuOpen(false); navigateTo(link.hash); }}
+                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))] bg-transparent border-none cursor-pointer">
+                      {link.name}
+                    </button>
+                  );
+                })}
               </div>
             </motion.div>
           )}

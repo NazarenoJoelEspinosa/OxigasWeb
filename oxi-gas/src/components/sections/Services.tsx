@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Flame, Wrench, Hammer, ArrowRight, type LucideIcon } from 'lucide-react';
+import { Flame, Wrench, Hammer, Star, ArrowRight, type LucideIcon } from 'lucide-react';
 import { Link } from 'wouter';
 
 type Category = {
@@ -31,6 +31,13 @@ const categories: Category[] = [
     description: 'Todo lo que necesitás para soldar de forma profesional.',
     items: ['Electrodos', 'Alambre MIG', 'Accesorios MIG', 'Discos de corte'],
     filter: 'soldadura',
+  },
+  {
+    icon: Star,
+    title: 'Ofertas',
+    description: 'Productos seleccionados con descuentos especiales y promociones exclusivas.',
+    items: ['Promociones', 'Descuentos', 'Paquetes especiales', 'Ofertas limitadas'],
+    filter: 'ofertas',
   },
 ];
 

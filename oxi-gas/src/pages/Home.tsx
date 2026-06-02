@@ -7,6 +7,7 @@ import { CatalogPreview } from '@/components/sections/CatalogPreview';
 import { Services } from '@/components/sections/Services';
 import { CompressedGases } from '@/components/sections/CompressedGases';
 import { FeaturedMachines } from '@/components/sections/FeaturedMachines';
+import { FeaturedOffers } from '@/components/sections/FeaturedOffers';
 import { SafetyGear } from '@/components/sections/SafetyGear';
 import { Brands } from '@/components/sections/Brands';
 import { Testimonios } from '@/components/sections/Testimonios';
@@ -24,6 +25,7 @@ export default function Home() {
       <Services />
       <CompressedGases />
       <FeaturedMachines />
+      <FeaturedOffers />
       <SafetyGear />
       <Brands />
       <Testimonios />
