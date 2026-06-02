@@ -23,7 +23,7 @@ const categories: Category[] = [
     title: 'Herramientas',
     description: 'Equipos de alta resistencia para construcción y mantenimiento industrial.',
     items: ['Amoladoras', 'Taladros', 'Compresores', 'Destornilladores'],
-    filter: 'herramientas',
+    filter: 'Herramientas Eléctricas',
   },
   {
     icon: Hammer,
@@ -31,13 +31,6 @@ const categories: Category[] = [
     description: 'Todo lo que necesitás para soldar de forma profesional.',
     items: ['Electrodos', 'Alambre MIG', 'Accesorios MIG', 'Discos de corte'],
     filter: 'soldadura',
-  },
-  {
-    icon: Star,
-    title: 'Ofertas',
-    description: 'Productos seleccionados con descuentos especiales y promociones exclusivas.',
-    items: ['Promociones', 'Descuentos', 'Paquetes especiales', 'Ofertas limitadas'],
-    filter: 'ofertas',
   },
 ];
 
@@ -61,7 +54,7 @@ export function Services() {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {categories.map((category, index) => {
             const Icon = category.icon;
             return (

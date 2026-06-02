@@ -5,10 +5,7 @@ import { Hero } from '@/components/sections/Hero';
 import { StatsBar } from '@/components/sections/StatsBar';
 import { CatalogPreview } from '@/components/sections/CatalogPreview';
 import { Services } from '@/components/sections/Services';
-import { CompressedGases } from '@/components/sections/CompressedGases';
-import { FeaturedMachines } from '@/components/sections/FeaturedMachines';
 import { FeaturedOffers } from '@/components/sections/FeaturedOffers';
-import { SafetyGear } from '@/components/sections/SafetyGear';
 import { Brands } from '@/components/sections/Brands';
 import { Testimonios } from '@/components/sections/Testimonios';
 import { TechnicalConsulting } from '@/components/sections/TechnicalConsulting';
@@ -23,10 +20,7 @@ export default function Home() {
       <StatsBar />
       <CatalogPreview />
       <Services />
-      <CompressedGases />
-      <FeaturedMachines />
       <FeaturedOffers />
-      <SafetyGear />
       <Brands />
       <Testimonios />
       <TechnicalConsulting />
