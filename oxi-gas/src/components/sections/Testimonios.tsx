@@ -11,54 +11,31 @@ type Testimonial = {
   color: string;
 };
 
+// ── Opiniones reales extraídas de Google Maps ─────────────────────────────────
 const testimonials: Testimonial[] = [
   {
-    name: 'Marcelo R.',
-    role: 'Taller de soldadura, Caseros',
-    text: 'Hace más de 10 años que compro los cilindros de oxígeno y acetileno acá. Siempre tienen stock, la entrega es rápida y el trato es excelente. No cambio por nada.',
-    stars: 5,
-    initials: 'MR',
+    name: 'A.',
+    role: 'Cliente verificado · Google',
+    text: 'Muy buena atención, amplio surtido, precios razonables.',
+    stars: 4,
+    initials: 'A',
     color: 'from-blue-500 to-blue-600',
   },
   {
-    name: 'Patricia V.',
-    role: 'Constructora, Ramos Mejía',
-    text: 'Las herramientas eléctricas que compramos rindieron de manera impresionante en la obra. Además, nos ayudaron a elegir el equipo correcto para cada trabajo. Un servicio muy profesional.',
+    name: 'J.',
+    role: 'Cliente verificado · Google',
+    text: 'Muy buena ferretería, excelente atención y buenos precios.',
     stars: 5,
-    initials: 'PV',
+    initials: 'J',
     color: 'from-orange-500 to-orange-600',
   },
   {
-    name: 'Diego F.',
-    role: 'Metalúrgica, San Justo',
-    text: 'Pedimos los electrodos y el alambre MIG en cantidad y siempre lo tienen. Los precios son muy convenientes para compras industriales. Le recomiendo a cualquier taller.',
+    name: 'Cliente Google',
+    role: 'Cliente verificado · Google',
+    text: 'Atiende toda la familia, hay un señor muy mayor con buen trato.',
     stars: 5,
-    initials: 'DF',
+    initials: 'CG',
     color: 'from-green-500 to-green-600',
-  },
-  {
-    name: 'Gustavo M.',
-    role: 'Servicio técnico, Morón',
-    text: 'Fui por primera vez buscando un equipo para soldar y me asesoraron sin apuro, explicándome cada opción. Me fui con lo que realmente necesitaba, no con lo más caro.',
-    stars: 5,
-    initials: 'GM',
-    color: 'from-purple-500 to-purple-600',
-  },
-  {
-    name: 'Alejandro T.',
-    role: 'Carpintería metálica, Castelar',
-    text: 'Llevo años siendo cliente y nunca me fallaron. Stock permanente, asesoramiento real y un equipo que sabe del rubro. Es mi proveedor de confianza para todo lo que es soldadura y gases.',
-    stars: 5,
-    initials: 'AT',
-    color: 'from-red-500 to-red-600',
-  },
-  {
-    name: 'Laura S.',
-    role: 'Empresa de mantenimiento, Ciudadela',
-    text: 'Compramos herramientas eléctricas y materiales de fijación para contratos de mantenimiento industrial. Siempre nos atienden bien y el pedido llega completo y a tiempo.',
-    stars: 5,
-    initials: 'LS',
-    color: 'from-teal-500 to-teal-600',
   },
 ];
 
@@ -101,23 +78,30 @@ export function Testimonios() {
             Más de 60 años de confianza
           </h2>
           <p className="text-xl text-[hsl(var(--text-soft))] max-w-2xl mx-auto">
-            Talleres, metalúrgicas y empresas de la zona confían en OXI-GAS para su trabajo diario.
+            Más de 343 clientes dejaron su opinión en Google. Esto es lo que dicen.
           </p>
 
           {/* Rating global */}
           <div className="flex items-center justify-center gap-3 mt-6">
             <div className="flex items-center gap-1">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />
+                <Star key={i} className={`w-5 h-5 ${i < 5 ? 'fill-amber-400 text-amber-400' : 'text-amber-200'}`} />
               ))}
             </div>
-            <span className="text-2xl font-extrabold text-[hsl(var(--text-main))]">5.0</span>
-            <span className="text-[hsl(var(--text-soft))] text-sm">· Atención de excelencia</span>
+            <span className="text-2xl font-extrabold text-[hsl(var(--text-main))]">4.7</span>
+            <a
+              href="https://maps.google.com/?q=Oxigas+Acosta+1906+Ciudadela"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary text-sm hover:underline font-semibold"
+            >
+              343 opiniones en Google ↗
+            </a>
           </div>
         </motion.div>
 
         {/* Grid de testimonios */}
-        <div ref={ref} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div ref={ref} className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {testimonials.map((t, i) => (
             <motion.div
               key={t.name}
