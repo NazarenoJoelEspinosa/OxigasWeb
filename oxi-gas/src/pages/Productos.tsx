@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, MessageCircle, Search, SlidersHorizontal, X, ZoomIn } from 'lucide-react';
+import {
+  ArrowLeft, MessageCircle, Search, SlidersHorizontal,
+  X, ZoomIn, ChevronDown, ChevronRight,
+} from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
 import { whatsappUrl } from '@/config/constants';
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type CustomField = { key: string; label: string; placeholder?: string };
 
@@ -22,28 +27,100 @@ type Product = {
   custom_fields?: CustomField[];
 };
 
+// ─── Grupos de categorías anidadas ───────────────────────────────────────────
+//
+//  Cada grupo tiene un "label" visible y un array de "slugs" que deben
+//  coincidir exactamente con los valores del campo `category` en Supabase.
+//  Ajustá los slugs según los que realmente tengas en la base de datos.
+
+type CategoryGroup = {
+  label: string;
+  icon: string;
+  slugs: string[];      // valores exactos del campo category en Supabase
+};
+
+const CATEGORY_GROUPS: CategoryGroup[] = [
+  {
+    label: 'Gases',
+    icon: '🔵',
+    slugs: ['gases', 'Gases', 'Gas comprimido', 'Gases comprimidos', 'Oxígeno', 'Acetileno', 'Argón', 'CO2'],
+  },
+  {
+    label: 'Soldadura',
+    icon: '🔥',
+    slugs: ['soldadura', 'Soldadura', 'Electrodos', 'Alambre MIG', 'Accesorios soldadura', 'Discos de corte'],
+  },
+  {
+    label: 'Herramientas Manuales',
+    icon: '🔨',
+    slugs: [
+      'herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales',
+      'manuales', 'Manuales', 'Llaves', 'Pinzas', 'Destornilladores',
+    ],
+  },
+  {
+    label: 'Herramientas Eléctricas',
+    icon: '⚡',
+    slugs: [
+      'herramientas electricas', 'Herramientas electricas', 'Herramientas Eléctricas',
+      'herramientas eléctricas', 'Eléctricas', 'Amoladoras', 'Taladros', 'Compresores',
+    ],
+  },
+  {
+    label: 'Fijación y Cables',
+    icon: '🔩',
+    slugs: [
+      'fijacion', 'Fijación', 'Fijacion', 'cables', 'Cables',
+      'Tornillos', 'Bulones', 'Fijación y Cables',
+    ],
+  },
+  {
+    label: 'Otros',
+    icon: '📦',
+    slugs: ['otros', 'Otros', 'EPP', 'Seguridad', 'Lubricantes', 'Adhesivos'],
+  },
+];
+
 const ALL = 'all';
 
 function normalize(v: string) {
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+/** Dado un valor de category, devuelve el índice del grupo al que pertenece (o -1) */
+function findGroup(category: string): number {
+  const n = normalize(category);
+  for (let i = 0; i < CATEGORY_GROUPS.length; i++) {
+    if (CATEGORY_GROUPS[i].slugs.some((s) => normalize(s) === n)) return i;
+  }
+  return -1; // sin grupo → "Otros" al final
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export default function Productos() {
   const cart = useCart();
   const [location] = useLocation();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [brand, setBrand] = useState(ALL);
-  const [category, setCategory] = useState(ALL);
+  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
+  const [category, setCategory] = useState<string>(ALL);
+
+  // qué grupos del sidebar están expandidos
+  const [openGroups, setOpenGroups] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
+
   const [selected, setSelected] = useState<Product | null>(null);
 
+  // Leer filtro de categoría desde URL (?categoria=xxx)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cat = params.get('categoria');
     if (cat) setCategory(cat);
   }, [location]);
 
+  // Cargar productos desde Supabase
   useEffect(() => {
     supabase
       .from('products')
@@ -55,33 +132,92 @@ export default function Productos() {
       });
   }, []);
 
-  const categories = useMemo(
+  // Categorías únicas reales (para mostrar subcategorías en el sidebar)
+  const allCategories = useMemo(
     () => [...new Set(products.map((p) => p.category).filter(Boolean) as string[])].sort(),
-    [products]
+    [products],
   );
 
-  const brands = useMemo(
+  // Marcas únicas
+  const allBrands = useMemo(
     () => [...new Set(products.map((p) => p.brand).filter(Boolean) as string[])].sort(),
-    [products]
+    [products],
   );
 
+  // Contar productos por categoría (con los filtros de búsqueda/marca aplicados, sin filtro de cat)
+  const countByCategory = useMemo(() => {
+    const map: Record<string, number> = {};
+    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
+    for (const p of products) {
+      if (!p.category) continue;
+      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) continue;
+      if (terms.length > 0) {
+        const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
+        if (!terms.every((t) => hay.includes(t))) continue;
+      }
+      map[p.category] = (map[p.category] ?? 0) + 1;
+    }
+    return map;
+  }, [products, selectedBrands, query]);
+
+  // Filtrado final
   const filtered = useMemo(() => {
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
     return products.filter((p) => {
       if (category !== ALL && p.category !== category) return false;
-      if (brand !== ALL && p.brand !== brand) return false;
+      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) return false;
       if (terms.length === 0) return true;
-      const haystack = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
-      return terms.every((t) => haystack.includes(t));
+      const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
+      return terms.every((t) => hay.includes(t));
     });
-  }, [products, category, brand, query]);
+  }, [products, category, selectedBrands, query]);
+
+  const hasFilters = query !== '' || selectedBrands.size > 0 || category !== ALL;
 
   const resetFilters = () => {
     setQuery('');
-    setBrand(ALL);
+    setSelectedBrands(new Set());
     setCategory(ALL);
   };
-  const hasFilters = query !== '' || brand !== ALL || category !== ALL;
+
+  const toggleBrand = (b: string) => {
+    setSelectedBrands((prev) => {
+      const next = new Set(prev);
+      next.has(b) ? next.delete(b) : next.add(b);
+      return next;
+    });
+  };
+
+  const toggleGroup = (i: number) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  };
+
+  // Construir árbol: grupos → subcategorías reales que pertenecen al grupo
+  const groupedCategories = useMemo(() => {
+    // Clasificar cada categoría real en un grupo
+    const buckets: Record<number, string[]> = {};
+    const ungrouped: string[] = [];
+
+    for (const cat of allCategories) {
+      const gi = findGroup(cat);
+      if (gi >= 0) {
+        buckets[gi] = [...(buckets[gi] ?? []), cat];
+      } else {
+        ungrouped.push(cat);
+      }
+    }
+
+    // Si hay categorías sin grupo, las metemos en "Otros" (índice 5)
+    if (ungrouped.length > 0) {
+      buckets[5] = [...(buckets[5] ?? []), ...ungrouped];
+    }
+
+    return buckets;
+  }, [allCategories]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -98,7 +234,9 @@ export default function Productos() {
         <div className="flex flex-col gap-2 mb-8">
           <h1 className="text-4xl font-extrabold text-[hsl(var(--text-main))]">Productos</h1>
           <p className="text-[hsl(var(--text-soft))]">
-            {loading ? 'Cargando...' : `${filtered.length} producto${filtered.length !== 1 ? 's' : ''}`}
+            {loading
+              ? 'Cargando...'
+              : `${filtered.length} producto${filtered.length !== 1 ? 's' : ''}`}
             {hasFilters && (
               <button onClick={resetFilters} className="ml-3 text-primary text-sm hover:underline">
                 Limpiar filtros
@@ -108,9 +246,11 @@ export default function Productos() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* SIDEBAR */}
-          <aside className="w-full lg:w-64 shrink-0">
-            <div className="relative mb-6">
+          {/* ─── SIDEBAR ─────────────────────────────────────────────────── */}
+          <aside className="w-full lg:w-64 shrink-0 space-y-4">
+
+            {/* Búsqueda */}
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
               <input
                 type="search"
@@ -126,58 +266,149 @@ export default function Productos() {
               )}
             </div>
 
-            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden mb-4">
+            {/* Categorías anidadas */}
+            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
               <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
               </div>
-              <div className="py-2">
-                <button
-                  onClick={() => setCategory(ALL)}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                    }`}
-                >
-                  Todas las categorías
-                </button>
-                {categories.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCategory(c)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${category === c ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+
+              {/* "Todas" */}
+              <button
+                onClick={() => setCategory(ALL)}
+                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 ${
+                  category === ALL
+                    ? 'text-primary font-semibold bg-primary/10'
+                    : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                }`}
+              >
+                Todas las categorías
+              </button>
+
+              {/* Grupos */}
+              {CATEGORY_GROUPS.map((group, gi) => {
+                const subcats = groupedCategories[gi] ?? [];
+                if (subcats.length === 0) return null; // ocultar grupos vacíos
+                const isOpen = openGroups.has(gi);
+                const groupTotal = subcats.reduce((acc, c) => acc + (countByCategory[c] ?? 0), 0);
+                const groupActive = subcats.some((c) => c === category);
+
+                return (
+                  <div key={group.label} className="border-b border-[hsl(var(--surface-3))]/40 last:border-0">
+                    {/* Cabecera del grupo */}
+                    <button
+                      onClick={() => toggleGroup(gi)}
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors ${
+                        groupActive
+                          ? 'text-primary bg-primary/5'
+                          : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
                       }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
+                    >
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden="true">{group.icon}</span>
+                        {group.label}
+                        {groupTotal > 0 && (
+                          <span className="text-[10px] font-bold bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))] px-1.5 py-0.5 rounded-full">
+                            {groupTotal}
+                          </span>
+                        )}
+                      </span>
+                      {isOpen
+                        ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                        : <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                      }
+                    </button>
+
+                    {/* Subcategorías */}
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden bg-[hsl(var(--surface-0))]/60"
+                        >
+                          {subcats.map((c) => {
+                            const count = countByCategory[c] ?? 0;
+                            return (
+                              <button
+                                key={c}
+                                onClick={() => setCategory(c === category ? ALL : c)}
+                                className={`w-full flex items-center justify-between pl-9 pr-4 py-2 text-xs transition-colors ${
+                                  category === c
+                                    ? 'text-primary font-semibold bg-primary/10'
+                                    : 'text-[hsl(var(--text-soft))] hover:text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                                }`}
+                              >
+                                <span className="truncate">{c}</span>
+                                {count > 0 && (
+                                  <span className={`text-[10px] ml-1 shrink-0 font-bold px-1.5 py-0.5 rounded-full ${
+                                    category === c
+                                      ? 'bg-primary/20 text-primary'
+                                      : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'
+                                  }`}>
+                                    {count}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
             </div>
 
+            {/* Marcas con checkboxes */}
             <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
-              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
+              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Marcas</p>
-              </div>
-              <div className="py-2">
-                <button
-                  onClick={() => setBrand(ALL)}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${brand === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                    }`}
-                >
-                  Todas las marcas
-                </button>
-                {brands.map((b) => (
+                {selectedBrands.size > 0 && (
                   <button
-                    key={b}
-                    onClick={() => setBrand(b)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${brand === b ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                      }`}
+                    onClick={() => setSelectedBrands(new Set())}
+                    className="text-[10px] text-primary hover:underline font-semibold"
                   >
-                    {b}
+                    Limpiar
                   </button>
-                ))}
+                )}
+              </div>
+              <div className="py-2 max-h-64 overflow-y-auto">
+                {allBrands.map((b) => {
+                  const checked = selectedBrands.has(b);
+                  const count = products.filter(
+                    (p) =>
+                      p.brand === b &&
+                      (category === ALL || p.category === category),
+                  ).length;
+                  return (
+                    <label
+                      key={b}
+                      className={`flex items-center gap-3 px-4 py-2 cursor-pointer text-sm transition-colors ${
+                        checked
+                          ? 'bg-primary/10 text-primary font-semibold'
+                          : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleBrand(b)}
+                        className="h-3.5 w-3.5 rounded border-[hsl(var(--surface-3))] accent-primary"
+                      />
+                      <span className="flex-1 truncate">{b}</span>
+                      {count > 0 && (
+                        <span className="text-[10px] font-bold text-[hsl(var(--text-soft))]">{count}</span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </aside>
 
-          {/* GRID */}
+          {/* ─── GRID ────────────────────────────────────────────────────── */}
           <div className="flex-1">
             {loading ? (
               <div className="flex items-center justify-center py-32">
@@ -223,6 +454,8 @@ export default function Productos() {
     </main>
   );
 }
+
+// ─── ProductCard ──────────────────────────────────────────────────────────────
 
 function ProductCard({
   product,
@@ -310,10 +543,11 @@ function ProductCard({
             e.stopPropagation();
             cart.toggle(product.code, { cantidad: String(qty), ...customValues });
           }}
-          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${isInCart
-            ? 'bg-primary text-white border-primary'
-            : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
-            }`}
+          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
+            isInCart
+              ? 'bg-primary text-white border-primary'
+              : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
+          }`}
         >
           {isInCart ? '✓ En cotización' : '+ Agregar a cotización'}
         </button>
@@ -321,6 +555,8 @@ function ProductCard({
     </motion.div>
   );
 }
+
+// ─── ProductModal ─────────────────────────────────────────────────────────────
 
 function ProductModal({
   product,
@@ -406,7 +642,7 @@ function ProductModal({
 
           <a
             href={whatsappUrl(
-              `Hola OXI-GAS, quiero consultar por:\n*${product.name}*\nCódigo: ${product.code}${product.brand ? `\nMarca: ${product.brand}` : ''}\nCantidad: ${fieldValues['cantidad'] || '1'}`
+              `Hola OXI-GAS, quiero consultar por:\n*${product.name}*\nCódigo: ${product.code}${product.brand ? `\nMarca: ${product.brand}` : ''}\nCantidad: ${fieldValues['cantidad'] || '1'}`,
             )}
             target="_blank"
             rel="noopener noreferrer"
