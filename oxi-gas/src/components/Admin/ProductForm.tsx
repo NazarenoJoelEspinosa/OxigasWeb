@@ -1,10 +1,23 @@
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'wouter';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowLeft, MessageCircle, Search, SlidersHorizontal,
+  X, ZoomIn, ChevronDown, ChevronRight,
+} from 'lucide-react';
+import { Header } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
+import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
+import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabaseClient';
+import { whatsappUrl } from '@/config/constants';
 
-export type CustomField = { key: string; label: string; placeholder?: string };
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
-export type Producto = {
-  id?: string;
+type CustomField = { key: string; label: string; placeholder?: string };
+
+type Product = {
+  id: string;
   code: string;
   name: string;
   description?: string;
@@ -14,241 +27,632 @@ export type Producto = {
   custom_fields?: CustomField[];
 };
 
-interface ProductFormProps {
-  producto?: Producto | null;
-  alGuardar: () => void;
-  alCancelar: () => void;
+// ─── Grupos de categorías anidadas ───────────────────────────────────────────
+//
+//  Cada grupo tiene un "label" visible y un array de "slugs" que deben
+//  coincidir exactamente con los valores del campo `category` en Supabase.
+//  Ajustá los slugs según los que realmente tengas en la base de datos.
+
+type CategoryGroup = {
+  label: string;
+  icon: string;
+  slugs: string[];      // valores exactos del campo category en Supabase
+};
+
+const CATEGORY_GROUPS: CategoryGroup[] = [
+  {
+    label: 'Gases',
+    icon: '🔵',
+    slugs: ['gases', 'Gases', 'Gas comprimido', 'Gases comprimidos', 'Oxígeno', 'Acetileno', 'Argón', 'CO2'],
+  },
+  {
+    label: 'Soldadura',
+    icon: '🔥',
+    slugs: ['soldadura', 'Soldadura', 'Electrodos', 'Alambre MIG', 'Accesorios soldadura', 'Discos de corte'],
+  },
+  {
+    label: 'Herramientas Manuales',
+    icon: '🔨',
+    slugs: [
+      'herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales',
+      'manuales', 'Manuales', 'Llaves', 'Pinzas', 'Destornilladores',
+    ],
+  },
+  {
+    label: 'Herramientas Eléctricas',
+    icon: '⚡',
+    slugs: [
+      'herramientas electricas', 'Herramientas electricas', 'Herramientas Eléctricas',
+      'herramientas eléctricas', 'Eléctricas', 'Amoladoras', 'Taladros', 'Compresores',
+    ],
+  },
+  {
+    label: 'Fijación y Cables',
+    icon: '🔩',
+    slugs: [
+      'fijacion', 'Fijación', 'Fijacion', 'cables', 'Cables',
+      'Tornillos', 'Bulones', 'Fijación y Cables',
+    ],
+  },
+  {
+    label: 'Otros',
+    icon: '📦',
+    slugs: ['otros', 'Otros', 'EPP', 'Seguridad', 'Lubricantes', 'Adhesivos'],
+  },
+];
+
+const ALL = 'all';
+
+function normalize(v: string) {
+  return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-export default function ProductForm({ producto, alGuardar, alCancelar }: ProductFormProps) {
-  const [codigo, setCodigo] = useState(producto?.code ?? '');
-  const [nombre, setNombre] = useState(producto?.name ?? '');
-  const [descripcion, setDescripcion] = useState(producto?.description ?? '');
-  const [marca, setMarca] = useState(producto?.brand ?? '');
-  const [categoria, setCategoria] = useState(producto?.category ?? '');
-  const [imagenesActuales, setImagenesActuales] = useState<string[]>(
-  Array.isArray(producto?.images)
-    ? producto.images.filter(
-        (img): img is string => typeof img === 'string'
-      )
-    : []
+/** Dado un valor de category, devuelve el índice del grupo al que pertenece (o -1) */
+function findGroup(category: string): number {
+  const n = normalize(category);
+  for (let i = 0; i < CATEGORY_GROUPS.length; i++) {
+    if (CATEGORY_GROUPS[i].slugs.some((s) => normalize(s) === n)) return i;
+  }
+  return -1; // sin grupo → "Otros" al final
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
+export default function Productos() {
+  const cart = useCart();
+  const [location] = useLocation();
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
+  const [category, setCategory] = useState<string>(ALL);
+
+  // qué grupos del sidebar están expandidos
+  const [openGroups, setOpenGroups] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
+
+  const [selected, setSelected] = useState<Product | null>(null);
+
+  // Leer filtro de categoría desde URL (?categoria=xxx)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cat = params.get('categoria');
+    if (cat) setCategory(cat);
+  }, [location]);
+
+  // Cargar productos desde Supabase
+  useEffect(() => {
+    supabase
+      .from('products')
+      .select('*')
+      .order('name', { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) setProducts(data as Product[]);
+        setLoading(false);
+      });
+  }, []);
+
+  // Categorías únicas reales (para mostrar subcategorías en el sidebar)
+  const allCategories = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean) as string[])].sort(),
+    [products],
   );
-  const [customFields, setCustomFields] = useState<CustomField[]>(producto?.custom_fields ?? []);
-  const [archivoImagen, setArchivoImagen] = useState<File | null>(null);
-  const [previsualizacion, setPrevisualizacion] = useState<string | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const inputFileRef = useRef<HTMLInputElement>(null);
 
-  const handleSeleccionArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const archivo = e.target.files?.[0] ?? null;
-    setArchivoImagen(archivo);
-    if (archivo) {
-      const lector = new FileReader();
-      lector.onload = () => setPrevisualizacion(lector.result as string);
-      lector.readAsDataURL(archivo);
-    } else setPrevisualizacion(null);
-  };
+  // Marcas únicas
+  const allBrands = useMemo(
+    () => [...new Set(products.map((p) => p.brand).filter(Boolean) as string[])].sort(),
+    [products],
+  );
 
-  const subirImagen = async (): Promise<string | null> => {
-    if (!archivoImagen) return null;
-    const ext = archivoImagen.name.split('.').pop();
-    const ruta = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from('product-images').upload(ruta, archivoImagen, { upsert: false });
-    if (uploadError) { setError('Error al subir la imagen: ' + uploadError.message); return null; }
-    const { data } = supabase.storage.from('product-images').getPublicUrl(ruta);
-    return data.publicUrl;
-  };
-
-  const agregarCampo = () => {
-    setCustomFields(prev => [...prev, { key: `campo_${Date.now()}`, label: '', placeholder: '' }]);
-  };
-
-  const actualizarCampo = (index: number, field: Partial<CustomField>) => {
-    setCustomFields(prev => prev.map((c, i) => i === index ? { ...c, ...field } : c));
-  };
-
-  const eliminarCampo = (index: number) => {
-    setCustomFields(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleGuardar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setGuardando(true);
-    setError(null);
-    try {
-      let urlNueva: string | null = null;
-      if (archivoImagen) { urlNueva = await subirImagen(); if (!urlNueva) { setGuardando(false); return; } }
-      
-      
-      const imagenesSeguras = Array.isArray(imagenesActuales)
-  ? imagenesActuales.filter(i => typeof i === 'string')
-  : [];
-
-const imagenesFinal = urlNueva
-  ? [...imagenesSeguras, urlNueva]
-  : imagenesSeguras;
-      const camposLimpios = customFields
-        .filter(c => c.label.trim() !== '')
-        .map(c => ({
-          key: c.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
-          label: c.label.trim(),
-          placeholder: c.placeholder?.trim() ?? '',
-        }));
-        console.log('DEBUG IMAGES:', {
-  productoImages: producto?.images,
-  imagenesActuales,
-  imagenesFinal
-});
-      const datos = {
-        code: codigo.trim(), name: nombre.trim(), description: descripcion.trim(),
-        brand: marca.trim(), category: categoria.trim(),
-        images: imagenesFinal, custom_fields: camposLimpios,
-      };
-      if (producto?.id) {
-        const { error: e } = await supabase.from('products').update(datos).eq('id', producto.id);
-        if (e) { setError('Error al actualizar: ' + e.message); return; }
-      } else {
-        const { error: e } = await supabase.from('products').insert(datos);
-        if (e) { setError('Error al crear: ' + e.message); return; }
+  // Contar productos por categoría (con los filtros de búsqueda/marca aplicados, sin filtro de cat)
+  const countByCategory = useMemo(() => {
+    const map: Record<string, number> = {};
+    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
+    for (const p of products) {
+      if (!p.category) continue;
+      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) continue;
+      if (terms.length > 0) {
+        const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
+        if (!terms.every((t) => hay.includes(t))) continue;
       }
-      alGuardar();
-    } catch (err: any) {
-      console.error('ERROR REAL:', err);
+      map[p.category] = (map[p.category] ?? 0) + 1;
+    }
+    return map;
+  }, [products, selectedBrands, query]);
 
-      setError(
-        err?.message ||
-        err?.error_description ||
-        JSON.stringify(err) ||
-        'Error inesperado al guardar.'
-      );
-    } finally { setGuardando(false); }
+  // Filtrado final
+  const filtered = useMemo(() => {
+    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
+    return products.filter((p) => {
+      if (category !== ALL && p.category !== category) return false;
+      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) return false;
+      if (terms.length === 0) return true;
+      const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
+      return terms.every((t) => hay.includes(t));
+    });
+  }, [products, category, selectedBrands, query]);
+
+  const hasFilters = query !== '' || selectedBrands.size > 0 || category !== ALL;
+
+  const resetFilters = () => {
+    setQuery('');
+    setSelectedBrands(new Set());
+    setCategory(ALL);
   };
+
+  const toggleBrand = (b: string) => {
+    setSelectedBrands((prev) => {
+      const next = new Set(prev);
+      next.has(b) ? next.delete(b) : next.add(b);
+      return next;
+    });
+  };
+
+  const toggleGroup = (i: number) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  };
+
+  // Construir árbol: grupos → subcategorías reales que pertenecen al grupo
+  const groupedCategories = useMemo(() => {
+    // Clasificar cada categoría real en un grupo
+    const buckets: Record<number, string[]> = {};
+    const ungrouped: string[] = [];
+
+    for (const cat of allCategories) {
+      const gi = findGroup(cat);
+      if (gi >= 0) {
+        buckets[gi] = [...(buckets[gi] ?? []), cat];
+      } else {
+        ungrouped.push(cat);
+      }
+    }
+
+    // Si hay categorías sin grupo, las metemos en "Otros" (índice 5)
+    if (ungrouped.length > 0) {
+      buckets[5] = [...(buckets[5] ?? []), ...ungrouped];
+    }
+
+    return buckets;
+  }, [allCategories]);
 
   return (
-    <div className="mb-6 bg-background border border-border rounded-xl p-6">
-      <h2 className="text-lg font-semibold mb-4">{producto?.id ? '✏️ Editar producto' : '➕ Nuevo producto'}</h2>
-      <form onSubmit={handleGuardar} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Código <span className="text-destructive">*</span></label>
-            <input value={codigo} onChange={(e) => setCodigo(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="Ej: OXI-001" required />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Nombre <span className="text-destructive">*</span></label>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="Ej: Tornillo Madera FIXER" required />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Descripción</label>
-          <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={2}
-            className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-            placeholder="Descripción opcional..." />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Marca</label>
-            <input value={marca} onChange={(e) => setMarca(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="Ej: BOSCH, FIXER..." />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Categoría</label>
-            <input value={categoria} onChange={(e) => setCategoria(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="Ej: fijacion, gases..." />
-          </div>
+    <main className="min-h-screen bg-background">
+      <Header />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-24">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-[hsl(var(--text-soft))] hover:text-primary transition-colors mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" /> Volver al inicio
+        </Link>
+
+        <div className="flex flex-col gap-2 mb-8">
+          <h1 className="text-4xl font-extrabold text-[hsl(var(--text-main))]">Productos</h1>
+          <p className="text-[hsl(var(--text-soft))]">
+            {loading
+              ? 'Cargando...'
+              : `${filtered.length} producto${filtered.length !== 1 ? 's' : ''}`}
+            {hasFilters && (
+              <button onClick={resetFilters} className="ml-3 text-primary text-sm hover:underline">
+                Limpiar filtros
+              </button>
+            )}
+          </p>
         </div>
 
-        {/* Campos variables */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <label className="block text-sm font-medium">Campos que completa el cliente</label>
-              <p className="text-xs text-muted-foreground">Para productos con medidas variables (tornillos, correas, gases, etc.)</p>
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* ─── SIDEBAR ─────────────────────────────────────────────────── */}
+          <aside className="w-full lg:w-64 shrink-0 space-y-4">
+
+            {/* Búsqueda */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar productos..."
+                className="w-full h-11 pl-10 pr-4 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="h-4 w-4 text-[hsl(var(--text-soft))]" />
+                </button>
+              )}
             </div>
-            <button type="button" onClick={agregarCampo}
-              className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-medium">
-              + Agregar campo
-            </button>
-          </div>
-          {customFields.length === 0 && (
-            <p className="text-xs text-muted-foreground italic py-2">Sin campos variables — el cliente solo ingresa cantidad.</p>
-          )}
-          <div className="space-y-2">
-            {customFields.map((campo, idx) => (
-              <div key={idx} className="flex gap-2 items-start p-3 bg-muted/40 rounded-lg border border-border">
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Etiqueta <span className="text-destructive">*</span></label>
-                    <input value={campo.label} onChange={(e) => actualizarCampo(idx, { label: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-input rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-                      placeholder="Ej: Diámetro" />
+
+            {/* Categorías anidadas */}
+            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
+              </div>
+
+              {/* "Todas" */}
+              <button
+                onClick={() => setCategory(ALL)}
+                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 ${
+                  category === ALL
+                    ? 'text-primary font-semibold bg-primary/10'
+                    : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                }`}
+              >
+                Todas las categorías
+              </button>
+
+              {/* Grupos */}
+              {CATEGORY_GROUPS.map((group, gi) => {
+                const subcats = groupedCategories[gi] ?? [];
+                if (subcats.length === 0) return null; // ocultar grupos vacíos
+                const isOpen = openGroups.has(gi);
+                const groupTotal = subcats.reduce((acc, c) => acc + (countByCategory[c] ?? 0), 0);
+                const groupActive = subcats.some((c) => c === category);
+
+                return (
+                  <div key={group.label} className="border-b border-[hsl(var(--surface-3))]/40 last:border-0">
+                    {/* Cabecera del grupo */}
+                    <button
+                      onClick={() => toggleGroup(gi)}
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors ${
+                        groupActive
+                          ? 'text-primary bg-primary/5'
+                          : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden="true">{group.icon}</span>
+                        {group.label}
+                        {groupTotal > 0 && (
+                          <span className="text-[10px] font-bold bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))] px-1.5 py-0.5 rounded-full">
+                            {groupTotal}
+                          </span>
+                        )}
+                      </span>
+                      {isOpen
+                        ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                        : <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                      }
+                    </button>
+
+                    {/* Subcategorías */}
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden bg-[hsl(var(--surface-0))]/60"
+                        >
+                          {subcats.map((c) => {
+                            const count = countByCategory[c] ?? 0;
+                            return (
+                              <button
+                                key={c}
+                                onClick={() => setCategory(c === category ? ALL : c)}
+                                className={`w-full flex items-center justify-between pl-9 pr-4 py-2 text-xs transition-colors ${
+                                  category === c
+                                    ? 'text-primary font-semibold bg-primary/10'
+                                    : 'text-[hsl(var(--text-soft))] hover:text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                                }`}
+                              >
+                                <span className="truncate">{c}</span>
+                                {count > 0 && (
+                                  <span className={`text-[10px] ml-1 shrink-0 font-bold px-1.5 py-0.5 rounded-full ${
+                                    category === c
+                                      ? 'bg-primary/20 text-primary'
+                                      : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'
+                                  }`}>
+                                    {count}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Ejemplo para el cliente</label>
-                    <input value={campo.placeholder ?? ''} onChange={(e) => actualizarCampo(idx, { placeholder: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-input rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-                      placeholder="Ej: 4 mm" />
-                  </div>
-                </div>
-                <button type="button" onClick={() => eliminarCampo(idx)}
-                  className="mt-5 text-destructive hover:bg-destructive/10 rounded p-1 transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                );
+              })}
+            </div>
+
+            {/* Marcas con checkboxes */}
+            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Marcas</p>
+                {selectedBrands.size > 0 && (
+                  <button
+                    onClick={() => setSelectedBrands(new Set())}
+                    className="text-[10px] text-primary hover:underline font-semibold"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+              <div className="py-2 max-h-64 overflow-y-auto">
+                {allBrands.map((b) => {
+                  const checked = selectedBrands.has(b);
+                  const count = products.filter(
+                    (p) =>
+                      p.brand === b &&
+                      (category === ALL || p.category === category),
+                  ).length;
+                  return (
+                    <label
+                      key={b}
+                      className={`flex items-center gap-3 px-4 py-2 cursor-pointer text-sm transition-colors ${
+                        checked
+                          ? 'bg-primary/10 text-primary font-semibold'
+                          : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleBrand(b)}
+                        className="h-3.5 w-3.5 rounded border-[hsl(var(--surface-3))] accent-primary"
+                      />
+                      <span className="flex-1 truncate">{b}</span>
+                      {count > 0 && (
+                        <span className="text-[10px] font-bold text-[hsl(var(--text-soft))]">{count}</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+
+          {/* ─── GRID ────────────────────────────────────────────────────── */}
+          <div className="flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-32">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-32 text-center">
+                <SlidersHorizontal className="h-12 w-12 text-[hsl(var(--text-soft))] mb-4" />
+                <h2 className="text-xl font-bold text-[hsl(var(--text-main))]">Sin resultados</h2>
+                <p className="text-[hsl(var(--text-soft))] mt-2">Probá con otros filtros o consultanos directamente.</p>
+                <button
+                  onClick={resetFilters}
+                  className="mt-4 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  Ver todos
                 </button>
               </div>
-            ))}
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
+                {filtered.map((product, i) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    index={i}
+                    onOpen={() => setSelected(product)}
+                    cart={cart}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
-        {imagenesActuales.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium mb-2">Imágenes actuales</label>
-            <div className="flex flex-wrap gap-3">
-              {imagenesActuales.map((url, idx) => (
-                <div key={idx} className="relative group">
-                  <img src={url} alt={`Imagen ${idx + 1}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
-                  <button type="button" onClick={() => setImagenesActuales(prev => prev.filter(i => i !== url))}
-                    className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+      <Footer />
+      <WhatsAppButton />
+
+      <AnimatePresence>
+        {selected && (
+          <ProductModal product={selected} cart={cart} onClose={() => setSelected(null)} />
+        )}
+      </AnimatePresence>
+    </main>
+  );
+}
+
+// ─── ProductCard ──────────────────────────────────────────────────────────────
+
+function ProductCard({
+  product,
+  index,
+  onOpen,
+  cart,
+}: {
+  product: Product;
+  index: number;
+  onOpen: () => void;
+  cart: ReturnType<typeof useCart>;
+}) {
+  const hasImage = product.images && product.images.length > 0;
+  const isInCart = cart.has(product.code);
+  const [qty, setQty] = useState(1);
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
+      className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-visible flex flex-col h-full"
+    >
+      <div onClick={onOpen} className="relative aspect-square bg-[hsl(var(--surface-2))] overflow-hidden cursor-pointer rounded-t-2xl">
+        {hasImage ? (
+          <img
+            src={product.images![0]}
+            alt={product.name}
+            loading="lazy"
+            className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[hsl(var(--text-soft))]">
+            <span className="text-3xl">📦</span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+          <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
+        </div>
+      </div>
+
+      <div className="p-3 flex-1 cursor-pointer" onClick={onOpen}>
+        {product.category && (
+          <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">{product.category}</p>
+        )}
+        <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{product.name}</p>
+        {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
+        <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
+        {product.description && (
+          <p className="text-[11px] text-[hsl(var(--text-soft))] mt-1 line-clamp-1">{product.description}</p>
+        )}
+      </div>
+
+      <div className="px-3 pb-3 flex flex-col gap-2">
+        {!isInCart && (
+          <>
+            {product.custom_fields && product.custom_fields.length > 0 && product.custom_fields.map(f => (
+              <input
+                key={f.key}
+                type="text"
+                placeholder={f.placeholder ?? f.label}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomValues(prev => ({ ...prev, [f.key]: val }));
+                }}
+                className="w-full h-9 px-3 rounded-lg border border-amber-500/40 bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+            ))}
+            <input
+              type="number"
+              min="1"
+              value={qty}
+              onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
+              onClick={(e) => e.stopPropagation()}
+              placeholder="Cantidad"
+              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            cart.toggle(product.code, { cantidad: String(qty), ...customValues });
+          }}
+          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
+            isInCart
+              ? 'bg-primary text-white border-primary'
+              : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
+          }`}
+        >
+          {isInCart ? '✓ En cotización' : '+ Agregar a cotización'}
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── ProductModal ─────────────────────────────────────────────────────────────
+
+function ProductModal({
+  product,
+  cart,
+  onClose,
+}: {
+  product: Product;
+  cart: ReturnType<typeof useCart>;
+  onClose: () => void;
+}) {
+  const hasImage = product.images && product.images.length > 0;
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({ cantidad: '1' });
+  const hasCustomFields = product.custom_fields && product.custom_fields.length > 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+      className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[hsl(var(--surface-1))] rounded-3xl border border-[hsl(var(--surface-3))] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--surface-3))]">
+          <span className="text-xs font-bold uppercase tracking-wider text-primary">{product.category}</span>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-[hsl(var(--surface-2))] transition-colors">
+            <X className="w-5 h-5 text-[hsl(var(--text-main))]" />
+          </button>
+        </div>
+
+        <div className="bg-[hsl(var(--surface-2))] aspect-video flex items-center justify-center">
+          {hasImage ? (
+            <img src={product.images![0]} alt={product.name} className="w-full h-full object-contain p-6" />
+          ) : (
+            <span className="text-6xl">📦</span>
+          )}
+        </div>
+
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-[hsl(var(--text-main))] mb-1">{product.name}</h2>
+          {product.brand && <p className="text-sm text-[hsl(var(--text-soft))] mb-1">{product.brand}</p>}
+          <p className="text-xs font-mono text-[hsl(var(--text-soft))]/60 mb-4">Código: {product.code}</p>
+
+          {product.description && (
+            <p className="text-sm text-[hsl(var(--text-soft))] leading-relaxed mb-6 border-l-2 border-primary/30 pl-3">
+              {product.description}
+            </p>
+          )}
+
+          {hasCustomFields && (
+            <div className="mb-4 space-y-3">
+              {product.custom_fields!.map((f) => (
+                <div key={f.key}>
+                  <label className="text-xs font-semibold text-[hsl(var(--text-soft))] mb-1 block">{f.label}</label>
+                  <input
+                    type="text"
+                    placeholder={f.placeholder}
+                    value={fieldValues[f.key] ?? ''}
+                    onChange={(e) => setFieldValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    className="w-full h-10 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
                 </div>
               ))}
             </div>
+          )}
+
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-[hsl(var(--text-soft))] mb-1 block">Cantidad</label>
+            <input
+              type="number"
+              min="1"
+              value={fieldValues['cantidad']}
+              onChange={(e) => setFieldValues((prev) => ({ ...prev, cantidad: e.target.value }))}
+              className="w-full h-10 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
           </div>
-        )}
-        <div>
-          <label className="block text-sm font-medium mb-1">Imagen del producto</label>
-          <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => inputFileRef.current?.click()}>
-            {previsualizacion ? (
-              <div className="flex flex-col items-center gap-2">
-                <img src={previsualizacion} alt="Previsualización" className="w-24 h-24 object-cover rounded-lg" />
-                <span className="text-xs text-muted-foreground">{archivoImagen?.name}</span>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-2">Clic para seleccionar imagen (JPG, PNG, WEBP)</p>
+
+          <a
+            href={whatsappUrl(
+              `Hola OXI-GAS, quiero consultar por:\n*${product.name}*\nCódigo: ${product.code}${product.brand ? `\nMarca: ${product.brand}` : ''}\nCantidad: ${fieldValues['cantidad'] || '1'}`,
             )}
-          </div>
-          <input ref={inputFileRef} type="file" accept="image/*" onChange={handleSeleccionArchivo} className="hidden" />
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#25d366]/90 text-white font-bold py-3.5 px-6 rounded-xl transition-colors shadow-lg shadow-[#25d366]/20"
+          >
+            <MessageCircle className="w-5 h-5" />
+            Consultar por WhatsApp
+          </a>
         </div>
-        {error && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
-        <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={guardando}
-            className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
-            {guardando ? 'Guardando...' : (producto?.id ? 'Guardar cambios' : 'Crear producto')}
-          </button>
-          <button type="button" onClick={alCancelar} disabled={guardando}
-            className="px-5 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
-            Cancelar
-          </button>
-        </div>
-      </form>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

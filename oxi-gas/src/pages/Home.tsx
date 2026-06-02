@@ -9,6 +9,7 @@ import { CompressedGases } from '@/components/sections/CompressedGases';
 import { FeaturedMachines } from '@/components/sections/FeaturedMachines';
 import { SafetyGear } from '@/components/sections/SafetyGear';
 import { Brands } from '@/components/sections/Brands';
+import { Testimonios } from '@/components/sections/Testimonios';
 import { TechnicalConsulting } from '@/components/sections/TechnicalConsulting';
 import { Hours } from '@/components/sections/Hours';
 import { QuoteForm } from '@/components/features/QuoteForm';
@@ -25,6 +26,7 @@ export default function Home() {
       <FeaturedMachines />
       <SafetyGear />
       <Brands />
+      <Testimonios />
       <TechnicalConsulting />
       <Hours />
       <QuoteForm />
