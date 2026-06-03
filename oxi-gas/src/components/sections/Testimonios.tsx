@@ -14,7 +14,7 @@ type Testimonial = {
 // ── Opiniones reales extraídas de Google Maps ─────────────────────────────────
 const testimonials: Testimonial[] = [
   {
-    name: 'A.',
+    name: 'Alejandro Gamino',
     role: 'Cliente verificado · Google',
     text: 'Muy buena atención, amplio surtido, precios razonables.',
     stars: 4,
@@ -22,15 +22,15 @@ const testimonials: Testimonial[] = [
     color: 'from-blue-500 to-blue-600',
   },
   {
-    name: 'J.',
+    name: 'Jorge Luis Szwedak',
     role: 'Cliente verificado · Google',
     text: 'Muy buena ferretería, excelente atención y buenos precios.',
     stars: 5,
-    initials: 'J',
+    initials: 'Jorge Luis Szwedak',
     color: 'from-orange-500 to-orange-600',
   },
   {
-    name: 'Cliente Google',
+    name: 'Gabriel Campanelli',
     role: 'Cliente verificado · Google',
     text: 'Atiende toda la familia, hay un señor muy mayor con buen trato.',
     stars: 5,
