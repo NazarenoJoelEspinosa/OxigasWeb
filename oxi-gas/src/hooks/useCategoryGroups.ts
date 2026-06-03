@@ -31,14 +31,18 @@ export type CategoryGroup = {
   sort_order: number;
 };
 
-// Grupos por defecto (se usan si la tabla no existe o está vacía)
+// Grupos por defecto (se usan si la tabla no existe o está vacía).
+// "Ofertas" NO está aquí — tiene su propia sección independiente en la home.
 export const DEFAULT_GROUPS: CategoryGroup[] = [
-  { label: 'Gases',                   icon: '🔵', slugs: ['gases', 'Gases', 'Gas comprimido', 'Gases comprimidos', 'Oxígeno', 'Acetileno', 'Argón', 'CO2'],                                                             sort_order: 0 },
-  { label: 'Soldadura',               icon: '🔥', slugs: ['soldadura', 'Soldadura', 'Electrodos', 'Alambre MIG', 'Accesorios soldadura', 'Discos de corte'],                                                             sort_order: 1 },
-  { label: 'Herramientas Manuales',   icon: '🔨', slugs: ['herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales', 'manuales', 'Manuales', 'Llaves', 'Pinzas', 'Destornilladores'],                    sort_order: 2 },
-  { label: 'Herramientas Eléctricas', icon: '⚡', slugs: ['herramientas electricas', 'Herramientas electricas', 'Herramientas Eléctricas', 'herramientas eléctricas', 'Eléctricas', 'Amoladoras', 'Taladros', 'Compresores'], sort_order: 3 },
-  { label: 'Fijación y Cables',       icon: '🔩', slugs: ['fijacion', 'Fijación', 'Fijacion', 'cables', 'Cables', 'Tornillos', 'Bulones', 'Fijación y Cables'],                                                         sort_order: 4 },
-  { label: 'Otros',                   icon: '📦', slugs: ['otros', 'Otros', 'EPP', 'Seguridad', 'Lubricantes', 'Adhesivos'],                                                                                             sort_order: 5 },
+  { label: 'Gases',                      icon: '🔵', slugs: ['gases', 'Gases', 'Gas comprimido', 'Gases comprimidos', 'Oxígeno', 'Acetileno', 'Argón', 'CO2'],                                                                          sort_order: 0 },
+  { label: 'Soldadura',                  icon: '🔥', slugs: ['soldadura', 'Soldadura', 'Electrodos', 'Alambre MIG', 'Accesorios soldadura', 'Discos de corte'],                                                                          sort_order: 1 },
+  { label: 'Herramientas Manuales',      icon: '🔨', slugs: ['herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales', 'Llaves', 'Pinzas', 'Destornilladores'],                                                         sort_order: 2 },
+  { label: 'Herramientas Eléctricas',    icon: '⚡', slugs: ['herramientas electricas', 'Herramientas electricas', 'Herramientas Eléctricas', 'herramientas eléctricas', 'Amoladoras', 'Taladros', 'Compresores'],                       sort_order: 3 },
+  { label: 'Fijación y Cables',          icon: '🔩', slugs: ['fijacion', 'Fijación', 'Fijacion', 'cables', 'Cables', 'Tornillos', 'Bulones', 'Fijación y Cables'],                                                                      sort_order: 4 },
+  { label: 'Insumos Industriales',       icon: '🏭', slugs: ['insumos industriales', 'Insumos Industriales', 'Insumos', 'Industrial'],                                                                                                   sort_order: 5 },
+  { label: 'Insumos y Mantenimiento',    icon: '🛠️', slugs: ['insumos mantenimiento', 'Insumos y Mantenimiento', 'Mantenimiento', 'Lubricantes', 'Adhesivos'],                                                                           sort_order: 6 },
+  { label: 'Seguridad Industrial (EPP)', icon: '🦺', slugs: ['seguridad', 'Seguridad', 'Seguridad Industrial', 'EPP', 'Seguridad Industrial (EPP)', 'Casco', 'Guantes', 'Lentes'],                                                      sort_order: 7 },
+  { label: 'Otros',                      icon: '📦', slugs: ['otros', 'Otros'],                                                                                                                                                          sort_order: 8 },
 ];
 
 type Status = 'loading' | 'ready' | 'error';
@@ -59,16 +63,18 @@ export function useCategoryGroups() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setGroups(data as CategoryGroup[]);
+        // Filtrar "Ofertas" por si existe en la DB — tiene su propia sección
+        const sinOfertas = (data as CategoryGroup[]).filter(
+          (g) => g.label.toLowerCase() !== 'ofertas'
+        );
+        setGroups(sinOfertas);
         setUsingFallback(false);
       } else {
-        // Tabla vacía → sembrar con los defaults
         setGroups(DEFAULT_GROUPS);
         setUsingFallback(true);
       }
       setStatus('ready');
     } catch {
-      // Tabla inexistente u otro error → usar fallback silenciosamente
       setGroups(DEFAULT_GROUPS);
       setUsingFallback(true);
       setStatus('ready');

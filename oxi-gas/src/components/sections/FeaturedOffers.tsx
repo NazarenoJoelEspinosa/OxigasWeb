@@ -4,6 +4,7 @@ import { MessageCircle, Zap, Tag, ChevronLeft, ChevronRight } from 'lucide-react
 import { whatsappUrl } from '@/config/constants';
 import { useOfertasProducts } from '@/hooks/useOfertasProducts';
 
+/** Formatea un número como moneda ARS. Ej: 1500 → "$1.500" */
 function formatPrecio(precio: number): string {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -27,6 +28,11 @@ export function FeaturedOffers() {
     return () => clearInterval(timer);
   }, [autoplay, products.length]);
 
+  // Resetear índice si cambian los productos (ej: recarga)
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [products.length]);
+
   const handlePrev = () => {
     setAutoplay(false);
     setCurrentIndex((prev) => (prev - 1 + products.length) % products.length);
@@ -37,7 +43,7 @@ export function FeaturedOffers() {
     setCurrentIndex((prev) => (prev + 1) % products.length);
   };
 
-  // Mientras carga o si no hay productos en oferta, no renderizar la sección
+  // Mientras carga o si no hay productos en categoría "Ofertas", no renderizar
   if (status === 'loading' || products.length === 0) return null;
 
   const producto = products[currentIndex];
@@ -135,7 +141,7 @@ export function FeaturedOffers() {
                 )}
 
                 {/* CTA WhatsApp */}
-                <a // <--- Agregamos la etiqueta de apertura <a>
+                <a
                   href={whatsappUrl(
                     `Hola OXI-GAS, quiero consultar el precio del producto en oferta: ${producto.name}`
                   )}
@@ -150,12 +156,12 @@ export function FeaturedOffers() {
             </motion.div>
           </AnimatePresence>
 
-          {/* Controles de navegación */}
+          {/* Botones de navegación (solo si hay más de 1 producto) */}
           {products.length > 1 && (
             <>
               <button
                 onClick={handlePrev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/90 hover:bg-white text-primary shadow-lg transition-all duration-300 md:left-0 md:-translate-x-6"
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/90 hover:bg-white text-primary shadow-lg transition-all duration-300 hover:shadow-xl md:left-0 md:-translate-x-6"
                 aria-label="Producto anterior"
               >
                 <ChevronLeft size={24} />
@@ -163,22 +169,23 @@ export function FeaturedOffers() {
 
               <button
                 onClick={handleNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/90 hover:bg-white text-primary shadow-lg transition-all duration-300 md:right-0 md:translate-x-6"
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/90 hover:bg-white text-primary shadow-lg transition-all duration-300 hover:shadow-xl md:right-0 md:translate-x-6"
                 aria-label="Siguiente producto"
               >
                 <ChevronRight size={24} />
               </button>
 
-              {/* Indicadores */}
+              {/* Indicadores de posición */}
               <div className="flex items-center justify-center gap-3 mt-8">
                 {products.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => { setAutoplay(false); setCurrentIndex(index); }}
-                    className={`h-2 rounded-full transition-all duration-300 ${index === currentIndex
-                      ? 'bg-primary w-8'
-                      : 'bg-primary/30 w-2 hover:bg-primary/50'
-                      }`}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      index === currentIndex
+                        ? 'bg-primary w-8'
+                        : 'bg-primary/30 w-2 hover:bg-primary/50'
+                    }`}
                     aria-label={`Ir al producto ${index + 1}`}
                   />
                 ))}
@@ -187,7 +194,7 @@ export function FeaturedOffers() {
           )}
         </div>
 
-        {/* Banner inferior */}
+        {/* Banner de contacto inferior */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -216,6 +223,6 @@ export function FeaturedOffers() {
         </motion.div>
 
       </div>
-    </section >
+    </section>
   );
 }

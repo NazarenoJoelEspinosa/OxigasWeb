@@ -6,7 +6,9 @@ import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 export function Services() {
   const { groups, status } = useCategoryGroups();
 
-  // "Ofertas" tiene su propia sección independiente — nunca aparece aquí
+  // "Ofertas" tiene su propia sección — nunca se muestra aquí.
+  // useCategoryGroups ya filtra "Ofertas" desde la DB, pero este filtro
+  // actúa como segunda capa de seguridad para el fallback local.
   const categorias = groups.filter(
     (g) => g.label.toLowerCase() !== 'ofertas'
   );
@@ -33,7 +35,7 @@ export function Services() {
           </p>
         </motion.div>
 
-        {/* Skeleton mientras carga */}
+        {/* Skeleton mientras carga desde Supabase */}
         {status === 'loading' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -46,7 +48,8 @@ export function Services() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {categorias.map((group, index) => {
-              // Slugs que empiezan con mayúscula = nombres de productos reales (no slugs técnicos)
+              // Slugs que empiezan con mayúscula = nombres de productos reales,
+              // no slugs técnicos (ej: "Oxígeno", "Acetileno" en vez de "gases").
               const ejemplos = group.slugs
                 .filter((s) => /^[A-ZÁÉÍÓÚÑÜ]/.test(s))
                 .slice(0, 5);
@@ -60,7 +63,7 @@ export function Services() {
                   transition={{ delay: index * 0.08, duration: 0.5 }}
                   className="bg-[hsl(var(--surface-2))] rounded-2xl p-8 shadow-lg border-t-4 border-t-primary border-x border-b border-[hsl(var(--surface-3))]/60 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 flex flex-col"
                 >
-                  {/* Ícono (emoji desde Supabase) */}
+                  {/* Ícono emoji desde Supabase */}
                   <div className="bg-primary/10 w-20 h-20 rounded-2xl flex items-center justify-center mb-6">
                     <span className="text-4xl" role="img" aria-label={group.label}>
                       {group.icon}
@@ -71,7 +74,7 @@ export function Services() {
                     {group.label}
                   </h3>
 
-                  {/* Lista de ejemplos de productos */}
+                  {/* Ejemplos de productos de esta categoría */}
                   {ejemplos.length > 0 && (
                     <ul className="space-y-3 mb-8 flex-1">
                       {ejemplos.map((item) => (

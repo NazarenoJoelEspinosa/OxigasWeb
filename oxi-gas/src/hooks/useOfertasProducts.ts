@@ -2,13 +2,18 @@
  * useOfertasProducts
  *
  * Lee productos reales de la tabla `products` donde category = 'Ofertas'.
- * Cuando el admin agrega un producto a la categoría "Ofertas", aparece
- * automáticamente en el carrusel de la home. No requiere carga manual.
+ *
+ * Flujo de administración:
+ *  1. El admin crea/edita un producto en el Dashboard.
+ *  2. Elige categoría "Ofertas" y carga el precio.
+ *  3. El carrusel de la home se actualiza automáticamente.
+ *
+ * No se requiere tabla adicional ni carga manual de promociones.
  *
  * Requisitos en Supabase:
- *  - La tabla `products` debe tener RLS con lectura pública para visible = true.
- *  - El campo `price` debe estar cargado (el ProductForm ya lo exige cuando
- *    la categoría es "Ofertas").
+ *  - Tabla `products` con RLS: select público para visible = true.
+ *  - Campo `price` (float) cargado para los productos en oferta.
+ *  - Campo `visible` (boolean) en true para que aparezcan.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -35,7 +40,8 @@ export function useOfertasProducts() {
       const { data, error } = await supabase
         .from('products')
         .select('id, name, description, brand, price, images')
-        .ilike('category', 'ofertas')  // case-insensitive: acepta "Ofertas", "ofertas", etc.
+        // ilike = case-insensitive: acepta "Ofertas", "ofertas", "OFERTAS", etc.
+        .ilike('category', 'ofertas')
         .eq('visible', true)
         .order('name', { ascending: true });
 
