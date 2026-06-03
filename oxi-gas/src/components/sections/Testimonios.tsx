@@ -26,7 +26,7 @@ const testimonials: Testimonial[] = [
     role: 'Cliente verificado · Google',
     text: 'Muy buena ferretería, excelente atención y buenos precios.',
     stars: 5,
-    initials: 'Jorge Luis Szwedak',
+    initials: 'J',
     color: 'from-orange-500 to-orange-600',
   },
   {
