@@ -204,36 +204,47 @@ export default function OffersAdmin() {
     loadOffers();
   }, [loadOffers]);
 
-  const handleSaveOffer = async (o: FeaturedOffer) => {
+const handleSaveOffer = async (o: FeaturedOffer) => {
     try {
       if (o.id?.startsWith('default-')) {
         // Insertar nueva oferta
         const { error } = await supabase
           .from('featured_offers')
-          .insert({ title: o.title, discount: o.discount, description: o.description, icon: o.icon, image: o.image || null, sort_order: offers.length });
+          .insert({ 
+            title: o.title, 
+            discount: o.discount, 
+            description: o.description, 
+            icon: o.icon, 
+            image: o.image || null, 
+            sort_order: offers.length 
+          });
         if (error) throw error;
         setMsg({ tipo: 'exito', texto: 'Oferta creada correctamente.' });
       } else if (o.id) {
         // Actualizar oferta existente
         const { error } = await supabase
           .from('featured_offers')
-          .update({ title: o.title, discount: o.discount, description: o.description, icon: o.icon, image: o.image || null })
+          .update({ 
+            title: o.title, 
+            discount: o.discount, 
+            description: o.description, 
+            icon: o.icon, 
+            image: o.image || null 
+          })
           .eq('id', o.id);
         if (error) throw error;
         setMsg({ tipo: 'exito', texto: 'Oferta actualizada correctamente.' });
       }
-          .eq('id', o.id);
-        if (error) throw error;
-        setMsg({ tipo: 'exito', texto: 'Oferta actualizada correctamente.' });
-      }
+      
       setShowForm(false);
       setEditingOffer(null);
+      // Usamos un pequeño delay para asegurar que Supabase procese el cambio
       setTimeout(() => loadOffers(), 500);
     } catch (e) {
       setMsg({ tipo: 'error', texto: (e as Error).message });
     }
   };
-
+  
   const handleDeleteOffer = async (id: string) => {
     if (!window.confirm('¿Eliminar esta oferta?')) return;
     try {

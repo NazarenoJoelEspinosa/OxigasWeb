@@ -135,7 +135,7 @@ export function FeaturedOffers() {
                 )}
 
                 {/* CTA WhatsApp */}
-                
+                <a // <--- Agregamos la etiqueta de apertura <a>
                   href={whatsappUrl(
                     `Hola OXI-GAS, quiero consultar el precio del producto en oferta: ${producto.name}`
                   )}
@@ -175,11 +175,10 @@ export function FeaturedOffers() {
                   <button
                     key={index}
                     onClick={() => { setAutoplay(false); setCurrentIndex(index); }}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      index === currentIndex
-                        ? 'bg-primary w-8'
-                        : 'bg-primary/30 w-2 hover:bg-primary/50'
-                    }`}
+                    className={`h-2 rounded-full transition-all duration-300 ${index === currentIndex
+                      ? 'bg-primary w-8'
+                      : 'bg-primary/30 w-2 hover:bg-primary/50'
+                      }`}
                     aria-label={`Ir al producto ${index + 1}`}
                   />
                 ))}
@@ -205,7 +204,7 @@ export function FeaturedOffers() {
           <p className="text-[hsl(var(--text-soft))] mb-4">
             Contactanos directamente por WhatsApp. Tenemos promociones especiales según tu volumen de compra.
           </p>
-          
+          <a
             href={whatsappUrl('Hola OXI-GAS, quiero conocer todas las ofertas y promociones disponibles.')}
             target="_blank"
             rel="noopener noreferrer"
@@ -217,6 +216,6 @@ export function FeaturedOffers() {
         </motion.div>
 
       </div>
-    </section>
+    </section >
   );
 }
