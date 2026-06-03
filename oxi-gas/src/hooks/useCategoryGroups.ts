@@ -38,8 +38,7 @@ export const DEFAULT_GROUPS: CategoryGroup[] = [
   { label: 'Herramientas Manuales',   icon: '🔨', slugs: ['herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales', 'manuales', 'Manuales', 'Llaves', 'Pinzas', 'Destornilladores'],                    sort_order: 2 },
   { label: 'Herramientas Eléctricas', icon: '⚡', slugs: ['herramientas electricas', 'Herramientas electricas', 'Herramientas Eléctricas', 'herramientas eléctricas', 'Eléctricas', 'Amoladoras', 'Taladros', 'Compresores'], sort_order: 3 },
   { label: 'Fijación y Cables',       icon: '🔩', slugs: ['fijacion', 'Fijación', 'Fijacion', 'cables', 'Cables', 'Tornillos', 'Bulones', 'Fijación y Cables'],                                                         sort_order: 4 },
-  { label: 'Ofertas',                 icon: '⭐', slugs: ['ofertas', 'Ofertas', 'Promoción', 'Promo', 'Descuento', 'Oferta'],                                                                                             sort_order: 5 },
-  { label: 'Otros',                   icon: '📦', slugs: ['otros', 'Otros', 'EPP', 'Seguridad', 'Lubricantes', 'Adhesivos'],                                                                                             sort_order: 6 },
+  { label: 'Otros',                   icon: '📦', slugs: ['otros', 'Otros', 'EPP', 'Seguridad', 'Lubricantes', 'Adhesivos'],                                                                                             sort_order: 5 },
 ];
 
 type Status = 'loading' | 'ready' | 'error';

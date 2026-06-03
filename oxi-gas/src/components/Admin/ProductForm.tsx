@@ -38,8 +38,15 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
       .then(({ data }) => {
         if (data) {
           const cats = [...new Set(data.map(p => p.category).filter(Boolean) as string[])].sort();
-          setCategorias(cats);
-          if (producto?.category && !cats.includes(producto.category)) {
+
+          // "Ofertas" siempre disponible, aunque no haya productos en esa categoría aún
+          const catsConOfertas = cats.includes('Ofertas')
+            ? cats
+            : [...cats, 'Ofertas'].sort();
+
+          setCategorias(catsConOfertas);
+
+          if (producto?.category && !catsConOfertas.includes(producto.category)) {
             setCategoriaPersonalizada(true);
           }
         }
@@ -167,12 +174,12 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Descripción del producto</label>
-          <textarea 
-            value={descripcion} 
-            onChange={(e) => setDescripcion(e.target.value)} 
+          <textarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
             rows={4}
             className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-            placeholder="Descripción detallada del producto. Se mostrará en la página de productos..." 
+            placeholder="Descripción detallada del producto. Se mostrará en la página de productos..."
           />
           <p className="text-xs text-muted-foreground mt-1">
             {descripcion.length} caracteres
@@ -188,14 +195,14 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
           {categoria.toLowerCase() === 'ofertas' && (
             <div>
               <label className="block text-sm font-medium mb-1">Precio (solo para ofertas)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 step="0.01"
                 min="0"
-                value={precio} 
+                value={precio}
                 onChange={(e) => setPrecio(e.target.value ? parseFloat(e.target.value) : '')}
                 className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="Ej: 1500.00" 
+                placeholder="Ej: 1500.00"
               />
             </div>
           )}
