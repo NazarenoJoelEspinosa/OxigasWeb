@@ -475,8 +475,7 @@ function ProductCard({
         <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{product.name}</p>
         {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
 
-        {/* FIX 6: Comparación case-insensitive para mostrar precio (era === 'ofertas') */}
-        {product.price != null && product.category?.toLowerCase() === 'ofertas' && (
+        {product.price != null && (
           <p className="text-sm font-bold text-primary mt-2">
             ${product.price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </p>
