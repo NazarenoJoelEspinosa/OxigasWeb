@@ -5,7 +5,7 @@ const oxiGasLogo = './images/logo_oxigas.png';
 const quickLinks = [
   { label: 'Inicio', href: '#inicio' },
   { label: 'Productos', href: '#productos' },
-  { label: 'Seguridad', href: '#seguridad' },
+  { label: 'Ofertas', href: '/ofertas' },
   { label: 'Marcas', href: '#marcas' },
   { label: 'Horarios', href: '#horarios' },
   { label: 'Contacto', href: '#contacto' },

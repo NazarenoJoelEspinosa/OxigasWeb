@@ -51,9 +51,18 @@ export default function Productos() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => new URLSearchParams(search).get('q') ?? '');
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
-  const [category, setCategory] = useState<string>(ALL);
+  const [category, setCategory] = useState<string>(() => new URLSearchParams(search).get('categoria') ?? ALL);
+
+  // Sincronizar con parámetros de URL cuando el usuario navega desde el header
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const q = params.get('q');
+    const cat = params.get('categoria');
+    if (q !== null) setQuery(q);
+    if (cat !== null) setCategory(cat);
+  }, [search]);
   const [selected, setSelected] = useState<Product | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(
     new Set(SIDEBAR_PARENTS.map(p => p.label))
