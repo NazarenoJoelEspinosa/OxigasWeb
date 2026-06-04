@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useThemeContext } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
 import { QuoteCart } from '@/components/features/QuoteCart';
+import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 const oxiGasLogo = './images/logo_oxigas.png';
 
 function useHashNavigate() {
@@ -26,6 +27,7 @@ function useHashNavigate() {
 export function Header() {
   const { theme, toggleTheme } = useThemeContext();
   const cart = useCart();
+  const { groups } = useCategoryGroups();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
@@ -45,12 +47,12 @@ export function Header() {
     { name: 'Contacto', hash: 'contacto' },
   ];
 
-  const productLinks = [
-    { name: 'Gases comprimidos', href: '/productos?categoria=gases' },
-    { name: 'Máquinas', href: '/productos?categoria=herramientas' },
-    { name: 'Seguridad', href: '/productos?categoria=seguridad' },
-    { name: 'Ofertas', href: '/productos?categoria=ofertas' },
-  ];
+  // Links del dropdown "Productos" — dinámicos desde Supabase (useCategoryGroups).
+  // "Ofertas" ya está excluido por el hook. Se muestran las primeras 5 categorías.
+  const productLinks = groups.slice(0, 5).map(g => ({
+    name: g.label,
+    href: `/productos?categoria=${encodeURIComponent(g.label)}`,
+  }));
 
   return (
     <>
@@ -67,7 +69,7 @@ export function Header() {
             <img
               src={oxiGasLogo}
               alt="OXI-GAS Ferretería Industrial"
-             className="h-16 sm:h-20 w-auto object-contain transition-transform hover:scale-[1.02]"
+              className="h-16 sm:h-20 w-auto object-contain transition-transform hover:scale-[1.02]"
             />
           </Link>
 
@@ -79,22 +81,35 @@ export function Header() {
               </button>
             ))}
 
+            {/* Dropdown Productos */}
             <div className="relative" onMouseEnter={() => setProductsOpen(true)} onMouseLeave={() => setProductsOpen(false)}>
               <Link href="/productos" className="inline-flex items-center gap-2 text-[hsl(var(--text-main))] hover:text-primary font-medium transition-colors">
                 Productos <ChevronDown size={16} />
               </Link>
               <AnimatePresence>
                 {productsOpen && (
-                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
-                    transition={{ duration: 0.2 }} className="absolute left-0 top-full pt-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute left-0 top-full pt-4"
+                  >
                     <div className="w-72 rounded-2xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] shadow-2xl p-3">
-                      <Link href="/productos" onClick={() => setProductsOpen(false)}
-                        className="flex items-center justify-between rounded-xl px-4 py-3 bg-primary/10 text-primary font-semibold hover:bg-primary/15 transition-colors mb-2">
+                      <Link
+                        href="/productos"
+                        onClick={() => setProductsOpen(false)}
+                        className="flex items-center justify-between rounded-xl px-4 py-3 bg-primary/10 text-primary font-semibold hover:bg-primary/15 transition-colors mb-2"
+                      >
                         Ver catálogo completo <ArrowRight size={16} />
                       </Link>
                       {productLinks.map((link) => (
-                        <Link key={link.name} href={link.href} onClick={() => setProductsOpen(false)}
-                          className="block rounded-xl px-4 py-3 text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))] hover:text-primary transition-colors">
+                        <Link
+                          key={link.name}
+                          href={link.href}
+                          onClick={() => setProductsOpen(false)}
+                          className="block rounded-xl px-4 py-3 text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))] hover:text-primary transition-colors"
+                        >
                           {link.name}
                         </Link>
                       ))}
@@ -128,8 +143,8 @@ export function Header() {
             </button>
           </nav>
 
+          {/* Mobile */}
           <div className="lg:hidden flex items-center gap-2">
-            {/* Carrito mobile */}
             <button
               type="button"
               onClick={() => setCartOpen(true)}
@@ -149,38 +164,43 @@ export function Header() {
               aria-label="Cambiar modo de color">
               {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
             </button>
-            <button className="text-[hsl(var(--text-main))] p-2 hover:bg-[hsl(var(--surface-1))] rounded-lg transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Abrir menú">
+            <button
+              className="text-[hsl(var(--text-main))] p-2 hover:bg-[hsl(var(--surface-1))] rounded-lg transition-colors"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Abrir menú"
+            >
               {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
             </button>
           </div>
         </div>
 
+        {/* Menú mobile */}
         <AnimatePresence>
           {mobileMenuOpen && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--surface-3))] overflow-hidden shadow-xl">
+              className="lg:hidden bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--surface-3))] overflow-hidden shadow-xl"
+            >
               <div className="px-4 py-6 flex flex-col space-y-2">
                 <Link href="/productos" onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-4 py-3 rounded-lg bg-primary/10 text-primary font-semibold">
                   Ver catálogo completo <ArrowRight size={16} />
                 </Link>
-                {[...mainLinks, ...productLinks].map((link) => {
-                  const isProductLink = 'href' in link;
-                  return isProductLink ? (
-                    <Link key={link.name} href={link.href} onClick={() => setMobileMenuOpen(false)}
-                      className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))]">
-                      {link.name}
-                    </Link>
-                  ) : (
-                    <button key={link.name} type="button"
-                      onClick={() => { setMobileMenuOpen(false); navigateTo(link.hash); }}
-                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))] bg-transparent border-none cursor-pointer">
-                      {link.name}
-                    </button>
-                  );
-                })}
+                {mainLinks.map((link) => (
+                  <button key={link.name} type="button"
+                    onClick={() => { setMobileMenuOpen(false); navigateTo(link.hash); }}
+                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))] bg-transparent border-none cursor-pointer">
+                    {link.name}
+                  </button>
+                ))}
+                {productLinks.map((link) => (
+                  <Link key={link.name} href={link.href} onClick={() => setMobileMenuOpen(false)}
+                    className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))]">
+                    {link.name}
+                  </Link>
+                ))}
               </div>
             </motion.div>
           )}

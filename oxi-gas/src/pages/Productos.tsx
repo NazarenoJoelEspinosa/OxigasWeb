@@ -29,18 +29,6 @@ type Product = {
   custom_fields?: CustomField[];
 };
 
-// ─── Grupos de categorías anidadas ───────────────────────────────────────────
-//
-//  Cada grupo tiene un "label" visible y un array de "slugs" que deben
-//  coincidir exactamente con los valores del campo `category` en Supabase.
-//  Ajustá los slugs según los que realmente tengas en la base de datos.
-
-type CategoryGroup = {
-  label: string;
-  icon: string;
-  slugs: string[];      // valores exactos del campo category en Supabase
-};
-
 const ALL = 'all';
 
 function normalize(v: string) {
@@ -60,36 +48,45 @@ export default function Productos() {
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>(ALL);
 
-  // qué grupos del sidebar están expandidos
-  const [openGroups, setOpenGroups] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5]));
+  // FIX 1: Todos los grupos cerrados por defecto (era new Set([0,1,2,3,4,5]))
+  const [openGroups, setOpenGroups] = useState<Set<number>>(new Set());
 
   const [selected, setSelected] = useState<Product | null>(null);
 
   /** Dado un valor de category, devuelve el índice del grupo al que pertenece (o -1) */
-  const findGroup = (category: string): number => {
-    const n = normalize(category);
+  const findGroup = (cat: string): number => {
+    const n = normalize(cat);
     for (let i = 0; i < CATEGORY_GROUPS.length; i++) {
       if (CATEGORY_GROUPS[i].slugs.some((s) => normalize(s) === n)) return i;
     }
-    return -1; // sin grupo → "Otros" al final
+    return -1;
   };
 
-  /** Obtiene todos los slugs válidos para una categoría (mapea genéricos como "herramientas" a sus subcategorías reales) */
+  /** Obtiene todos los slugs válidos para una categoría */
   const getCategorySlugs = (cat: string): string[] => {
     if (cat === ALL) return [];
     const groupIndex = findGroup(cat);
-    if (groupIndex >= 0) {
-      return CATEGORY_GROUPS[groupIndex].slugs;
-    }
-    return [cat]; // Si no coincide con grupo, devuelve como está (por si hay categoría personalizada)
+    if (groupIndex >= 0) return CATEGORY_GROUPS[groupIndex].slugs;
+    return [cat];
   };
 
-  // Leer filtro de categoría desde URL (?categoria=xxx)
+  // FIX 2: Scroll al tope al montar la página
+  // (sin esto, al navegar desde la home con ?categoria=xxx llegaba al final)
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
+  // Leer filtro de categoría desde URL (?categoria=xxx) y auto-expandir su grupo
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cat = params.get('categoria');
-    if (cat) setCategory(cat);
-  }, [location]);
+    if (cat) {
+      setCategory(cat);
+      // FIX 3: Auto-expandir el grupo correspondiente en el sidebar
+      const gi = findGroup(cat);
+      if (gi >= 0) setOpenGroups(new Set([gi]));
+    }
+  }, [location, CATEGORY_GROUPS]);
 
   // Cargar productos desde Supabase
   useEffect(() => {
@@ -103,7 +100,7 @@ export default function Productos() {
       });
   }, []);
 
-  // Categorías únicas reales (para mostrar subcategorías en el sidebar)
+  // Categorías únicas reales (para el sidebar)
   const allCategories = useMemo(
     () => [...new Set(products.map((p) => p.category).filter(Boolean) as string[])].sort(),
     [products],
@@ -115,7 +112,7 @@ export default function Productos() {
     [products],
   );
 
-  // Contar productos por categoría (con los filtros de búsqueda/marca aplicados, sin filtro de cat)
+  // Contar productos por categoría (con filtros de búsqueda/marca, sin filtro de cat)
   const countByCategory = useMemo(() => {
     const map: Record<string, number> = {};
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
@@ -131,21 +128,22 @@ export default function Productos() {
     return map;
   }, [products, selectedBrands, query]);
 
-  // Filtrado final
+  // FIX 4: Filtrado con comparación normalizada (case-insensitive + sin tildes)
+  // Antes: allowedSlugs.includes(p.category || '') → fallaba con distintas mayúsculas
   const filtered = useMemo(() => {
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
     const allowedSlugs = getCategorySlugs(category);
     return products.filter((p) => {
       if (category !== ALL) {
-        // Si hay filtro de categoría, verificar que el producto esté en los slugs permitidos
-        if (!allowedSlugs.includes(p.category || '')) return false;
+        const pCatNorm = normalize(p.category || '');
+        if (!allowedSlugs.some((s) => normalize(s) === pCatNorm)) return false;
       }
       if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) return false;
       if (terms.length === 0) return true;
       const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
       return terms.every((t) => hay.includes(t));
     });
-  }, [products, category, selectedBrands, query]);
+  }, [products, category, selectedBrands, query, CATEGORY_GROUPS]);
 
   const hasFilters = query !== '' || selectedBrands.size > 0 || category !== ALL;
 
@@ -171,9 +169,8 @@ export default function Productos() {
     });
   };
 
-  // Construir árbol: grupos → subcategorías reales que pertenecen al grupo
+  // Árbol sidebar: grupos → subcategorías reales
   const groupedCategories = useMemo(() => {
-    // Clasificar cada categoría real en un grupo
     const buckets: Record<number, string[]> = {};
     const ungrouped: string[] = [];
 
@@ -186,13 +183,15 @@ export default function Productos() {
       }
     }
 
-    // Si hay categorías sin grupo, las metemos en "Otros" (índice 5)
+    // FIX 5: Índice dinámico para "Otros" (no hardcodeado como 5)
     if (ungrouped.length > 0) {
-      buckets[5] = [...(buckets[5] ?? []), ...ungrouped];
+      const otrosIdx = CATEGORY_GROUPS.findIndex((g) => g.label.toLowerCase() === 'otros');
+      const idx = otrosIdx >= 0 ? otrosIdx : CATEGORY_GROUPS.length - 1;
+      if (idx >= 0) buckets[idx] = [...(buckets[idx] ?? []), ...ungrouped];
     }
 
     return buckets;
-  }, [allCategories]);
+  }, [allCategories, CATEGORY_GROUPS]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -262,14 +261,13 @@ export default function Productos() {
               {/* Grupos */}
               {CATEGORY_GROUPS.map((group, gi) => {
                 const subcats = groupedCategories[gi] ?? [];
-                if (subcats.length === 0) return null; // ocultar grupos vacíos
+                if (subcats.length === 0) return null;
                 const isOpen = openGroups.has(gi);
                 const groupTotal = subcats.reduce((acc, c) => acc + (countByCategory[c] ?? 0), 0);
                 const groupActive = subcats.some((c) => c === category);
 
                 return (
                   <div key={group.label} className="border-b border-[hsl(var(--surface-3))]/40 last:border-0">
-                    {/* Cabecera del grupo */}
                     <button
                       onClick={() => toggleGroup(gi)}
                       className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors ${
@@ -293,7 +291,6 @@ export default function Productos() {
                       }
                     </button>
 
-                    {/* Subcategorías */}
                     <AnimatePresence initial={false}>
                       {isOpen && (
                         <motion.div
@@ -336,7 +333,7 @@ export default function Productos() {
               })}
             </div>
 
-            {/* Marcas con checkboxes */}
+            {/* Marcas */}
             <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
               <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center justify-between">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Marcas</p>
@@ -353,9 +350,7 @@ export default function Productos() {
                 {allBrands.map((b) => {
                   const checked = selectedBrands.has(b);
                   const count = products.filter(
-                    (p) =>
-                      p.brand === b &&
-                      (category === ALL || p.category === category),
+                    (p) => p.brand === b && (category === ALL || p.category === category),
                   ).length;
                   return (
                     <label
@@ -479,11 +474,14 @@ function ProductCard({
         )}
         <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{product.name}</p>
         {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
-        {product.price && product.category?.toLowerCase() === 'ofertas' && (
+
+        {/* FIX 6: Comparación case-insensitive para mostrar precio (era === 'ofertas') */}
+        {product.price != null && product.category?.toLowerCase() === 'ofertas' && (
           <p className="text-sm font-bold text-primary mt-2">
             ${product.price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </p>
         )}
+
         <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
         {product.description && (
           <p className="text-[11px] text-[hsl(var(--text-soft))] mt-1 line-clamp-1">{product.description}</p>
@@ -592,7 +590,8 @@ function ProductModal({
             </p>
           )}
 
-          {product.price && product.category?.toLowerCase() === 'ofertas' && (
+          {/* FIX 6 (modal): Comparación case-insensitive para mostrar precio */}
+          {product.price != null && product.category?.toLowerCase() === 'ofertas' && (
             <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20">
               <p className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">Precio especial en oferta</p>
               <p className="text-3xl font-bold text-primary">
