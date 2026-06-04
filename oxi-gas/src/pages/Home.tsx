@@ -5,6 +5,8 @@ import { Hero } from '@/components/sections/Hero';
 import { StatsBar } from '@/components/sections/StatsBar';
 import { CatalogPreview } from '@/components/sections/CatalogPreview';
 import { Services } from '@/components/sections/Services';
+import { CompressedGases } from '@/components/sections/CompressedGases';
+import { FeaturedMachines } from '@/components/sections/FeaturedMachines';
 import { FeaturedOffers } from '@/components/sections/FeaturedOffers';
 import { Brands } from '@/components/sections/Brands';
 import { Testimonios } from '@/components/sections/Testimonios';
@@ -20,6 +22,8 @@ export default function Home() {
       <StatsBar />
       <CatalogPreview />
       <Services />
+      <CompressedGases />
+      <FeaturedMachines />
       <FeaturedOffers />
       <Brands />
       <Testimonios />

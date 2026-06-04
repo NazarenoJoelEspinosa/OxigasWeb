@@ -1,7 +1,14 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { motion } from 'framer-motion';
 import { ArrowRight, Boxes, Layers, ShieldCheck, type LucideIcon } from 'lucide-react';
-import { PRODUCTS, PRODUCT_BRANDS, PRODUCT_CATEGORIES } from '@/data/products';
+import { supabase } from '@/lib/supabaseClient';
+
+type Stats = {
+  total: number;
+  categories: number;
+  brands: number;
+};
 
 type Highlight = {
   icon: LucideIcon;
@@ -9,35 +16,43 @@ type Highlight = {
   description: string;
 };
 
-function buildHighlights(): Highlight[] {
-  if (PRODUCTS.length === 0) {
-    return [
-      { icon: Boxes, title: 'Catálogo en armado', description: 'Estamos cargando los productos más vendidos.' },
-      { icon: Layers, title: 'Múltiples categorías', description: 'Soldadura, neumática, herramientas y más.' },
-      { icon: ShieldCheck, title: 'Marcas líderes', description: 'Trabajamos con marcas reconocidas del rubro.' },
-    ];
-  }
+function buildHighlights(stats: Stats): Highlight[] {
   return [
     {
       icon: Boxes,
-      title: `${PRODUCTS.length}+ productos`,
-      description: 'Catálogo completo en una sola vista',
+      title: stats.total > 0 ? `${stats.total}+ productos` : 'Catálogo completo',
+      description: 'Todo en un solo lugar, con filtros por categoría y marca',
     },
     {
       icon: Layers,
-      title: `${PRODUCT_CATEGORIES.length} categorías`,
-      description: 'Soldadura, neumática, herramientas y más',
+      title: stats.categories > 0 ? `${stats.categories} categorías` : 'Múltiples categorías',
+      description: 'Soldadura, neumática, herramientas, gases y más',
     },
     {
       icon: ShieldCheck,
-      title: `${PRODUCT_BRANDS.length} marcas`,
+      title: stats.brands > 0 ? `${stats.brands} marcas` : 'Marcas líderes',
       description: 'Las mejores marcas del rubro industrial',
     },
   ];
 }
 
 export function CatalogPreview() {
-  const highlights = buildHighlights();
+  const [stats, setStats] = useState<Stats>({ total: 0, categories: 0, brands: 0 });
+
+  useEffect(() => {
+    supabase
+      .from('products')
+      .select('category, brand')
+      .eq('visible', true)
+      .then(({ data }) => {
+        if (!data) return;
+        const categories = new Set(data.map((p) => p.category).filter(Boolean)).size;
+        const brands = new Set(data.map((p) => p.brand).filter(Boolean)).size;
+        setStats({ total: data.length, categories, brands });
+      });
+  }, []);
+
+  const highlights = buildHighlights(stats);
 
   return (
     <section
