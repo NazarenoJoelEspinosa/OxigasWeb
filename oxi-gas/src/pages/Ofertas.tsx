@@ -114,7 +114,7 @@ export default function Ofertas() {
                     <span className="text-6xl select-none">🏷️</span>
                   )}
                   {/* Badge descuento */}
-                  {offer.price != null && offer.original_price != null && (
+                  {offer.price != null && offer.original_price != null && offer.price < offer.original_price && (
                     <div className="absolute top-3 right-3 bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">
                       -{Math.round((1 - offer.price / offer.original_price) * 100)}%
                     </div>

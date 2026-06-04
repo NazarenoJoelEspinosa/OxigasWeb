@@ -50,7 +50,7 @@ export function Header() {
 
   // Links del dropdown "Productos" — dinámicos desde Supabase (useCategoryGroups).
   // "Ofertas" ya está excluido por el hook. Se muestran las primeras 5 categorías.
-  const productLinks = groups.slice(0, 3).map(g => ({
+  const productLinks = groups.slice(0, 4).map(g => ({
     name: g.label,
     href: `/productos?categoria=${encodeURIComponent(g.label)}`,
   }));
@@ -144,10 +144,9 @@ export function Header() {
             </button>
 
             <button type="button" onClick={toggleTheme}
-              className="inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] px-4 py-2 text-[hsl(var(--text-main))] hover:border-primary transition-colors"
+              className="inline-flex items-center justify-center rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] p-2 text-[hsl(var(--text-main))] hover:border-primary transition-colors"
               aria-label="Cambiar modo de color">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-              <span>{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
             </button>
           </nav>
 

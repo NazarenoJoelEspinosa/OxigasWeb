@@ -33,8 +33,8 @@ export function Services() {
 
         {/* Skeleton mientras carga desde Supabase */}
         {status === 'loading' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
                 className="bg-[hsl(var(--surface-2))] rounded-2xl p-8 h-64 animate-pulse"
@@ -42,7 +42,7 @@ export function Services() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {categorias.map((group, index) => {
               // Slugs que empiezan con mayúscula = nombres de productos reales,
               // no slugs técnicos (ej: "Oxígeno", "Acetileno" en vez de "gases").

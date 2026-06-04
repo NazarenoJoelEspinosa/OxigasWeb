@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, MessageCircle, Search, SlidersHorizontal,
+  ArrowLeft, ChevronDown, MessageCircle, Search, SlidersHorizontal,
   X, ZoomIn,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -35,6 +35,10 @@ function normalize(v: string) {
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+const SIDEBAR_PARENTS: { label: string; icon: string; childLabels: string[] }[] = [
+  { label: 'Herramientas', icon: '🔨', childLabels: ['Herramientas Manuales', 'Herramientas Eléctricas'] },
+];
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function Productos() {
@@ -49,6 +53,9 @@ export default function Productos() {
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>(ALL);
   const [selected, setSelected] = useState<Product | null>(null);
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(
+    new Set(SIDEBAR_PARENTS.map(p => p.label))
+  );
 
   /** Devuelve el índice del grupo al que pertenece una categoría (por label o por slug). -1 si no matchea. */
   const findGroup = (cat: string): number => {
@@ -131,15 +138,58 @@ export default function Productos() {
     return counts as number[];
   }, [products, selectedBrands, query, CATEGORY_GROUPS]);
 
+  // Sidebarr items: pre-computed list with parent/child hierarchy
+  type SidebarItem =
+    | { type: 'parent'; label: string; icon: string; count: number; childLabels: string[] }
+    | { type: 'child'; label: string; icon: string; count: number; gi: number; parentLabel: string }
+    | { type: 'group'; label: string; icon: string; count: number; gi: number };
+
+  const sidebarItems = useMemo((): SidebarItem[] => {
+    const renderedParents = new Set<string>();
+    const items: SidebarItem[] = [];
+    CATEGORY_GROUPS.forEach((group, gi) => {
+      const parentCfg = SIDEBAR_PARENTS.find(p => p.childLabels.includes(group.label));
+      if (parentCfg) {
+        if (!renderedParents.has(parentCfg.label)) {
+          renderedParents.add(parentCfg.label);
+          const childIndices = parentCfg.childLabels
+            .map(lbl => CATEGORY_GROUPS.findIndex(g => g.label === lbl))
+            .filter(i => i >= 0);
+          const parentCount = childIndices.reduce((sum, i) => sum + (countByGroup[i] ?? 0), 0);
+          if (parentCount > 0) {
+            items.push({ type: 'parent', label: parentCfg.label, icon: parentCfg.icon, count: parentCount, childLabels: parentCfg.childLabels });
+          }
+        }
+        const count = countByGroup[gi] ?? 0;
+        if (count > 0) {
+          items.push({ type: 'child', label: group.label, icon: group.icon, count, gi, parentLabel: parentCfg.label });
+        }
+      } else {
+        const count = countByGroup[gi] ?? 0;
+        if (count > 0) {
+          items.push({ type: 'group', label: group.label, icon: group.icon, count, gi });
+        }
+      }
+    });
+    return items;
+  }, [CATEGORY_GROUPS, countByGroup]);
+
   // Filtrado por grupo: un producto pasa si está en el mismo grupo que la categoría seleccionada.
-  // Si la categoría no mapea a ningún grupo, se usa match exacto normalizado (fallback).
+  // Si la categoría es un "padre" (ej: "Herramientas"), incluye todos sus grupos hijos.
   const filtered = useMemo(() => {
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
-    const targetGroupIdx = findGroup(category);
+    const parentCfg = SIDEBAR_PARENTS.find(p => p.label === category);
+    const targetGroupIdx = parentCfg ? -2 : findGroup(category);
     return products.filter((p) => {
       if (category !== ALL) {
-        if (targetGroupIdx >= 0) {
-          if (findGroup(p.category || '') !== targetGroupIdx) return false;
+        const pGroupIdx = findGroup(p.category || '');
+        if (parentCfg) {
+          const childIndices = parentCfg.childLabels
+            .map(lbl => CATEGORY_GROUPS.findIndex(g => g.label === lbl))
+            .filter(i => i >= 0);
+          if (!childIndices.includes(pGroupIdx)) return false;
+        } else if (targetGroupIdx >= 0) {
+          if (pGroupIdx !== targetGroupIdx) return false;
         } else {
           if (normalize(p.category || '') !== normalize(category)) return false;
         }
@@ -231,30 +281,78 @@ export default function Productos() {
                 Todas las categorías
               </button>
 
-              {CATEGORY_GROUPS.map((group, gi) => {
-                const count = countByGroup[gi] ?? 0;
-                if (count === 0) return null;
-                const isActive = findGroup(category) === gi;
+              {sidebarItems.map((item) => {
+                if (item.type === 'parent') {
+                  const isActive = category === item.label;
+                  const isExpanded = expandedParents.has(item.label);
+                  return (
+                    <div key={`parent-${item.label}`}>
+                      <div className={`flex items-center border-b border-[hsl(var(--surface-3))]/40 ${isActive ? 'bg-primary/10' : ''}`}>
+                        <button
+                          onClick={() => {
+                            setCategory(isActive ? ALL : item.label);
+                            if (!isExpanded) setExpandedParents(prev => { const n = new Set(prev); n.add(item.label); return n; });
+                          }}
+                          className={`flex-1 flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors text-left ${isActive ? 'text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:text-primary'}`}
+                        >
+                          <span aria-hidden="true">{item.icon}</span>
+                          {item.label}
+                        </button>
+                        <div className="flex items-center gap-1 pr-3">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
+                            {item.count}
+                          </span>
+                          <button
+                            onClick={() => setExpandedParents(prev => { const n = new Set(prev); n.has(item.label) ? n.delete(item.label) : n.add(item.label); return n; })}
+                            className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors"
+                            aria-label={isExpanded ? 'Colapsar' : 'Expandir'}
+                          >
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform text-[hsl(var(--text-soft))] ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (item.type === 'child') {
+                  if (!expandedParents.has(item.parentLabel)) return null;
+                  const isActive = findGroup(category) === item.gi;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => setCategory(isActive ? ALL : item.label)}
+                      className={`w-full flex items-center justify-between pl-9 pr-4 py-2 text-sm transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${
+                        isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden="true">{item.icon}</span>
+                        {item.label}
+                      </span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
+                        {item.count}
+                      </span>
+                    </button>
+                  );
+                }
+
+                // type === 'group'
+                const isActive = findGroup(category) === item.gi;
                 return (
                   <button
-                    key={group.label}
-                    onClick={() => setCategory(isActive ? ALL : group.label)}
+                    key={item.label}
+                    onClick={() => setCategory(isActive ? ALL : item.label)}
                     className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${
-                      isActive
-                        ? 'text-primary font-semibold bg-primary/10'
-                        : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                      isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <span aria-hidden="true">{group.icon}</span>
-                      {group.label}
+                      <span aria-hidden="true">{item.icon}</span>
+                      {item.label}
                     </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                      isActive
-                        ? 'bg-primary/20 text-primary'
-                        : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'
-                    }`}>
-                      {count}
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
+                      {item.count}
                     </span>
                   </button>
                 );
