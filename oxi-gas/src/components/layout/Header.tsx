@@ -45,6 +45,7 @@ export function Header() {
     { name: 'Marcas', hash: 'marcas' },
     { name: 'Horarios', hash: 'horarios' },
     { name: 'Contacto', hash: 'contacto' },
+    { name: 'Ofertas', href: '/ofertas' },
   ];
 
   // Links del dropdown "Productos" — dinámicos desde Supabase (useCategoryGroups).
@@ -74,12 +75,19 @@ export function Header() {
           </Link>
 
           <nav className="hidden lg:flex items-center gap-6">
-            {mainLinks.map((link) => (
-              <button key={link.name} type="button" onClick={() => navigateTo(link.hash)}
-                className="text-[hsl(var(--text-main))] hover:text-primary font-medium transition-colors bg-transparent border-none cursor-pointer">
-                {link.name}
-              </button>
-            ))}
+            {mainLinks.map((link) =>
+              'href' in link ? (
+                <Link key={link.name} href={link.href}
+                  className="text-[hsl(var(--text-main))] hover:text-primary font-medium transition-colors">
+                  {link.name}
+                </Link>
+              ) : (
+                <button key={link.name} type="button" onClick={() => navigateTo(link.hash)}
+                  className="text-[hsl(var(--text-main))] hover:text-primary font-medium transition-colors bg-transparent border-none cursor-pointer">
+                  {link.name}
+                </button>
+              )
+            )}
 
             {/* Dropdown Productos */}
             <div className="relative" onMouseEnter={() => setProductsOpen(true)} onMouseLeave={() => setProductsOpen(false)}>
@@ -188,13 +196,21 @@ export function Header() {
                   className="flex items-center justify-between px-4 py-3 rounded-lg bg-primary/10 text-primary font-semibold">
                   Ver catálogo completo <ArrowRight size={16} />
                 </Link>
-                {mainLinks.map((link) => (
-                  <button key={link.name} type="button"
-                    onClick={() => { setMobileMenuOpen(false); navigateTo(link.hash); }}
-                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))] bg-transparent border-none cursor-pointer">
-                    {link.name}
-                  </button>
-                ))}
+                {mainLinks.map((link) =>
+                  'href' in link ? (
+                    <Link key={link.name} href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))]">
+                      {link.name}
+                    </Link>
+                  ) : (
+                    <button key={link.name} type="button"
+                      onClick={() => { setMobileMenuOpen(false); navigateTo(link.hash); }}
+                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))] bg-transparent border-none cursor-pointer">
+                      {link.name}
+                    </button>
+                  )
+                )}
                 {productLinks.map((link) => (
                   <Link key={link.name} href={link.href} onClick={() => setMobileMenuOpen(false)}
                     className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))]">

@@ -88,16 +88,40 @@ export default function Productos() {
     }
   }, [location, CATEGORY_GROUPS]);
 
-  // Cargar productos desde Supabase
+  // Cargar productos desde Supabase, excluyendo los que tienen oferta activa
   useEffect(() => {
-    supabase
-      .from('products')
-      .select('*')
-      .order('name', { ascending: true })
-      .then(({ data, error }) => {
-        if (!error && data) setProducts(data as Product[]);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from('products').select('*').order('name', { ascending: true }),
+      supabase.from('offers').select('product_code').eq('visible', true).not('product_code', 'is', null),
+    ]).then(([productsRes, offersRes]) => {
+      const offerCodes = new Set<string>(
+        ((offersRes.data ?? []) as { product_code: string }[])
+          .map((o) => o.product_code)
+          .filter(Boolean)
+      );
+      const allProducts = (productsRes.data ?? []) as Product[];
+      // Filtrar: excluir los productos cuyo código tiene oferta activa
+      // y los de categoría "Ofertas" (legado)
+      const filtered = allProducts.filter(
+        (p) =>
+          p.category?.toLowerCase() !== 'ofertas' &&
+          (!p.code || !offerCodes.has(p.code))
+      );
+      setProducts(filtered);
+      setLoading(false);
+    }).catch(() => {
+      // Si la tabla offers no existe todavía, cargar todos los productos igualmente
+      supabase
+        .from('products')
+        .select('*')
+        .order('name', { ascending: true })
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setProducts((data as Product[]).filter(p => p.category?.toLowerCase() !== 'ofertas'));
+          }
+          setLoading(false);
+        });
+    });
   }, []);
 
   // Categorías únicas reales (para el sidebar)
