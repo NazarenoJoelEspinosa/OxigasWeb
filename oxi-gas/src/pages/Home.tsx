@@ -20,11 +20,11 @@ export default function Home() {
       <Header />
       <Hero />
       <StatsBar />
+      <FeaturedOffers />
       <CatalogPreview />
       <Services />
       <CompressedGases />
       <FeaturedMachines />
-      <FeaturedOffers />
       <Brands />
       <Testimonios />
       <TechnicalConsulting />

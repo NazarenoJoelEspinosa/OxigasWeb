@@ -50,7 +50,7 @@ export function Header() {
 
   // Links del dropdown "Productos" — dinámicos desde Supabase (useCategoryGroups).
   // "Ofertas" ya está excluido por el hook. Se muestran las primeras 5 categorías.
-  const productLinks = groups.slice(0, 5).map(g => ({
+  const productLinks = groups.slice(0, 3).map(g => ({
     name: g.label,
     href: `/productos?categoria=${encodeURIComponent(g.label)}`,
   }));

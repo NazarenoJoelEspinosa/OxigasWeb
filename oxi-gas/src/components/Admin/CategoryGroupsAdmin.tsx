@@ -253,6 +253,20 @@ export default function CategoryGroupsAdmin() {
     load();
   };
 
+  const resetToDefaults = async () => {
+    if (!tableExists) { notify('err', 'La tabla no existe todavía.'); return; }
+    if (!window.confirm('¿Restaurar todos los grupos a los valores predeterminados? Se borrarán los grupos actuales.')) return;
+    const ids = groups.map((g) => g.id).filter(Boolean) as string[];
+    if (ids.length > 0) {
+      await supabase.from('category_groups').delete().in('id', ids);
+    }
+    for (const [i, g] of DEFAULT_GROUPS.entries()) {
+      await supabase.from('category_groups').insert({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: i });
+    }
+    notify('ok', 'Grupos restaurados a los valores predeterminados.');
+    load();
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast */}
@@ -271,13 +285,21 @@ export default function CategoryGroupsAdmin() {
             Estos grupos aparecen en el sidebar de la página de Productos.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {tableExists && groups.length === 0 && (
             <button
               onClick={seedDefaults}
               className="h-9 px-4 border border-input rounded-lg text-sm font-medium hover:bg-muted transition-colors flex items-center gap-1.5"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Cargar defaults
+            </button>
+          )}
+          {tableExists && groups.length > 0 && (
+            <button
+              onClick={resetToDefaults}
+              className="h-9 px-4 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg text-sm font-medium hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Restaurar defaults
             </button>
           )}
           <button

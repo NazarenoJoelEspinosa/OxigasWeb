@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, MessageCircle, Search, SlidersHorizontal,
-  X, ZoomIn, ChevronDown, ChevronRight,
+  X, ZoomIn,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
@@ -39,7 +39,8 @@ function normalize(v: string) {
 
 export default function Productos() {
   const cart = useCart();
-  const [location] = useLocation();
+  useLocation(); // mantiene compatibilidad con wouter para re-renders en cambios de ruta
+  const search = useSearch();
   const { groups: CATEGORY_GROUPS } = useCategoryGroups();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -47,46 +48,30 @@ export default function Productos() {
   const [query, setQuery] = useState('');
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>(ALL);
-
-  // FIX 1: Todos los grupos cerrados por defecto (era new Set([0,1,2,3,4,5]))
-  const [openGroups, setOpenGroups] = useState<Set<number>>(new Set());
-
   const [selected, setSelected] = useState<Product | null>(null);
 
-  /** Dado un valor de category, devuelve el índice del grupo al que pertenece (o -1) */
+  /** Devuelve el índice del grupo al que pertenece una categoría (por label o por slug). -1 si no matchea. */
   const findGroup = (cat: string): number => {
     const n = normalize(cat);
     for (let i = 0; i < CATEGORY_GROUPS.length; i++) {
+      if (normalize(CATEGORY_GROUPS[i].label) === n) return i;
       if (CATEGORY_GROUPS[i].slugs.some((s) => normalize(s) === n)) return i;
     }
     return -1;
   };
 
-  /** Obtiene todos los slugs válidos para una categoría */
-  const getCategorySlugs = (cat: string): string[] => {
-    if (cat === ALL) return [];
-    const groupIndex = findGroup(cat);
-    if (groupIndex >= 0) return CATEGORY_GROUPS[groupIndex].slugs;
-    return [cat];
-  };
-
-  // FIX 2: Scroll al tope al montar la página
-  // (sin esto, al navegar desde la home con ?categoria=xxx llegaba al final)
+  // Scroll al tope al montar la página
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  // Leer filtro de categoría desde URL (?categoria=xxx) y auto-expandir su grupo
+  // Leer filtro de categoría desde URL — usa useSearch() para detectar cambios de query params
+  // incluso cuando el pathname /productos no cambia (fix de navegación entre categorías)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(search);
     const cat = params.get('categoria');
-    if (cat) {
-      setCategory(cat);
-      // FIX 3: Auto-expandir el grupo correspondiente en el sidebar
-      const gi = findGroup(cat);
-      if (gi >= 0) setOpenGroups(new Set([gi]));
-    }
-  }, [location, CATEGORY_GROUPS]);
+    setCategory(cat ?? ALL);
+  }, [search, CATEGORY_GROUPS]);
 
   // Cargar productos desde Supabase, excluyendo los que tienen oferta activa
   useEffect(() => {
@@ -124,43 +109,40 @@ export default function Productos() {
     });
   }, []);
 
-  // Categorías únicas reales (para el sidebar)
-  const allCategories = useMemo(
-    () => [...new Set(products.map((p) => p.category).filter(Boolean) as string[])].sort(),
-    [products],
-  );
-
   // Marcas únicas
   const allBrands = useMemo(
     () => [...new Set(products.map((p) => p.brand).filter(Boolean) as string[])].sort(),
     [products],
   );
 
-  // Contar productos por categoría (con filtros de búsqueda/marca, sin filtro de cat)
-  const countByCategory = useMemo(() => {
-    const map: Record<string, number> = {};
+  // Contar productos por grupo (respetando filtros de búsqueda y marca, ignorando filtro de categoría)
+  const countByGroup = useMemo(() => {
+    const counts = new Array(CATEGORY_GROUPS.length).fill(0);
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
     for (const p of products) {
-      if (!p.category) continue;
       if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) continue;
       if (terms.length > 0) {
         const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
         if (!terms.every((t) => hay.includes(t))) continue;
       }
-      map[p.category] = (map[p.category] ?? 0) + 1;
+      const gi = findGroup(p.category || '');
+      if (gi >= 0) counts[gi]++;
     }
-    return map;
-  }, [products, selectedBrands, query]);
+    return counts as number[];
+  }, [products, selectedBrands, query, CATEGORY_GROUPS]);
 
-  // FIX 4: Filtrado con comparación normalizada (case-insensitive + sin tildes)
-  // Antes: allowedSlugs.includes(p.category || '') → fallaba con distintas mayúsculas
+  // Filtrado por grupo: un producto pasa si está en el mismo grupo que la categoría seleccionada.
+  // Si la categoría no mapea a ningún grupo, se usa match exacto normalizado (fallback).
   const filtered = useMemo(() => {
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
-    const allowedSlugs = getCategorySlugs(category);
+    const targetGroupIdx = findGroup(category);
     return products.filter((p) => {
       if (category !== ALL) {
-        const pCatNorm = normalize(p.category || '');
-        if (!allowedSlugs.some((s) => normalize(s) === pCatNorm)) return false;
+        if (targetGroupIdx >= 0) {
+          if (findGroup(p.category || '') !== targetGroupIdx) return false;
+        } else {
+          if (normalize(p.category || '') !== normalize(category)) return false;
+        }
       }
       if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) return false;
       if (terms.length === 0) return true;
@@ -184,38 +166,6 @@ export default function Productos() {
       return next;
     });
   };
-
-  const toggleGroup = (i: number) => {
-    setOpenGroups((prev) => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  };
-
-  // Árbol sidebar: grupos → subcategorías reales
-  const groupedCategories = useMemo(() => {
-    const buckets: Record<number, string[]> = {};
-    const ungrouped: string[] = [];
-
-    for (const cat of allCategories) {
-      const gi = findGroup(cat);
-      if (gi >= 0) {
-        buckets[gi] = [...(buckets[gi] ?? []), cat];
-      } else {
-        ungrouped.push(cat);
-      }
-    }
-
-    // FIX 5: Índice dinámico para "Otros" (no hardcodeado como 5)
-    if (ungrouped.length > 0) {
-      const otrosIdx = CATEGORY_GROUPS.findIndex((g) => g.label.toLowerCase() === 'otros');
-      const idx = otrosIdx >= 0 ? otrosIdx : CATEGORY_GROUPS.length - 1;
-      if (idx >= 0) buckets[idx] = [...(buckets[idx] ?? []), ...ungrouped];
-    }
-
-    return buckets;
-  }, [allCategories, CATEGORY_GROUPS]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -264,13 +214,12 @@ export default function Productos() {
               )}
             </div>
 
-            {/* Categorías anidadas */}
+            {/* Categorías — grupos planos y clickeables */}
             <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
               <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
               </div>
 
-              {/* "Todas" */}
               <button
                 onClick={() => setCategory(ALL)}
                 className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 ${
@@ -282,77 +231,32 @@ export default function Productos() {
                 Todas las categorías
               </button>
 
-              {/* Grupos */}
               {CATEGORY_GROUPS.map((group, gi) => {
-                const subcats = groupedCategories[gi] ?? [];
-                if (subcats.length === 0) return null;
-                const isOpen = openGroups.has(gi);
-                const groupTotal = subcats.reduce((acc, c) => acc + (countByCategory[c] ?? 0), 0);
-                const groupActive = subcats.some((c) => c === category);
-
+                const count = countByGroup[gi] ?? 0;
+                if (count === 0) return null;
+                const isActive = findGroup(category) === gi;
                 return (
-                  <div key={group.label} className="border-b border-[hsl(var(--surface-3))]/40 last:border-0">
-                    <button
-                      onClick={() => toggleGroup(gi)}
-                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors ${
-                        groupActive
-                          ? 'text-primary bg-primary/5'
-                          : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span aria-hidden="true">{group.icon}</span>
-                        {group.label}
-                        {groupTotal > 0 && (
-                          <span className="text-[10px] font-bold bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))] px-1.5 py-0.5 rounded-full">
-                            {groupTotal}
-                          </span>
-                        )}
-                      </span>
-                      {isOpen
-                        ? <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-                        : <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-50" />
-                      }
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {isOpen && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden bg-[hsl(var(--surface-0))]/60"
-                        >
-                          {subcats.map((c) => {
-                            const count = countByCategory[c] ?? 0;
-                            return (
-                              <button
-                                key={c}
-                                onClick={() => setCategory(c === category ? ALL : c)}
-                                className={`w-full flex items-center justify-between pl-9 pr-4 py-2 text-xs transition-colors ${
-                                  category === c
-                                    ? 'text-primary font-semibold bg-primary/10'
-                                    : 'text-[hsl(var(--text-soft))] hover:text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                                }`}
-                              >
-                                <span className="truncate">{c}</span>
-                                {count > 0 && (
-                                  <span className={`text-[10px] ml-1 shrink-0 font-bold px-1.5 py-0.5 rounded-full ${
-                                    category === c
-                                      ? 'bg-primary/20 text-primary'
-                                      : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'
-                                  }`}>
-                                    {count}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <button
+                    key={group.label}
+                    onClick={() => setCategory(isActive ? ALL : group.label)}
+                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${
+                      isActive
+                        ? 'text-primary font-semibold bg-primary/10'
+                        : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden="true">{group.icon}</span>
+                      {group.label}
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                      isActive
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
                 );
               })}
             </div>
@@ -373,8 +277,12 @@ export default function Productos() {
               <div className="py-2 max-h-64 overflow-y-auto">
                 {allBrands.map((b) => {
                   const checked = selectedBrands.has(b);
+                  const targetGi = findGroup(category);
                   const count = products.filter(
-                    (p) => p.brand === b && (category === ALL || p.category === category),
+                    (p) => p.brand === b && (
+                      category === ALL ||
+                      (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category))
+                    ),
                   ).length;
                   return (
                     <label

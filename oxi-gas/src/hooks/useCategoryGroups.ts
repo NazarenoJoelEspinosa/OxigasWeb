@@ -34,15 +34,92 @@ export type CategoryGroup = {
 // Grupos por defecto (se usan si la tabla no existe o está vacía).
 // "Ofertas" NO está aquí — tiene su propia sección independiente en la home.
 export const DEFAULT_GROUPS: CategoryGroup[] = [
-  { label: 'Gases',                      icon: '🔵', slugs: ['gases', 'Gases', 'Gas comprimido', 'Gases comprimidos', 'Oxígeno', 'Acetileno', 'Argón', 'CO2'],                                                                          sort_order: 0 },
-  { label: 'Soldadura',                  icon: '🔥', slugs: ['soldadura', 'Soldadura', 'Electrodos', 'Alambre MIG', 'Accesorios soldadura', 'Discos de corte'],                                                                          sort_order: 1 },
-  { label: 'Herramientas Manuales',      icon: '🔨', slugs: ['herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales', 'Llaves', 'Pinzas', 'Destornilladores'],                                                         sort_order: 2 },
-  { label: 'Herramientas Eléctricas',    icon: '⚡', slugs: ['herramientas electricas', 'Herramientas electricas', 'Herramientas Eléctricas', 'herramientas eléctricas', 'Amoladoras', 'Taladros', 'Compresores'],                       sort_order: 3 },
-  { label: 'Fijación y Cables',          icon: '🔩', slugs: ['fijacion', 'Fijación', 'Fijacion', 'cables', 'Cables', 'Tornillos', 'Bulones', 'Fijación y Cables'],                                                                      sort_order: 4 },
-  { label: 'Insumos Industriales',       icon: '🏭', slugs: ['insumos industriales', 'Insumos Industriales', 'Insumos', 'Industrial'],                                                                                                   sort_order: 5 },
-  { label: 'Insumos y Mantenimiento',    icon: '🛠️', slugs: ['insumos mantenimiento', 'Insumos y Mantenimiento', 'Mantenimiento', 'Lubricantes', 'Adhesivos'],                                                                           sort_order: 6 },
-  { label: 'Seguridad Industrial (EPP)', icon: '🦺', slugs: ['seguridad', 'Seguridad', 'Seguridad Industrial', 'EPP', 'Seguridad Industrial (EPP)', 'Casco', 'Guantes', 'Lentes'],                                                      sort_order: 7 },
-  { label: 'Otros',                      icon: '📦', slugs: ['otros', 'Otros'],                                                                                                                                                          sort_order: 8 },
+  {
+    label: 'Gases', icon: '🔵',
+    slugs: [
+      'gases', 'Gases', 'Gas', 'gas',
+      'Gas comprimido', 'gas comprimido',
+      'Gases comprimidos', 'gases comprimidos',
+      'Gas envasado', 'gas envasado',
+      'Oxígeno', 'oxigeno', 'Oxigeno',
+      'Acetileno', 'acetileno',
+      'Argón', 'argon', 'Argon',
+      'CO2', 'co2',
+    ],
+    sort_order: 0,
+  },
+  {
+    label: 'Soldadura', icon: '🔥',
+    slugs: [
+      'soldadura', 'Soldadura',
+      'Electrodos', 'electrodos',
+      'Alambre MIG', 'alambre mig', 'Alambre', 'alambre',
+      'Accesorios soldadura', 'accesorios soldadura',
+      'Discos de corte', 'discos de corte',
+      'Discos', 'discos',
+      'Soldadura autógena', 'soldadura autogena',
+    ],
+    sort_order: 1,
+  },
+  {
+    label: 'Herramientas', icon: '🔨',
+    slugs: [
+      'herramientas', 'Herramientas',
+      'herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales',
+      'herramientas electricas', 'Herramientas electricas',
+      'herramientas eléctricas', 'Herramientas eléctricas', 'Herramientas Eléctricas',
+      'Amoladoras', 'amoladoras',
+      'Taladros', 'taladros',
+      'Compresores', 'compresores',
+      'Llaves', 'llaves',
+      'Pinzas', 'pinzas',
+      'Destornilladores', 'destornilladores',
+      'Martillos', 'martillos',
+      'Herramientas de corte', 'herramientas de corte',
+    ],
+    sort_order: 2,
+  },
+  {
+    label: 'Fijación y Cables', icon: '🔩',
+    slugs: [
+      'fijacion', 'Fijación', 'Fijacion', 'fijación',
+      'cables', 'Cables',
+      'Tornillos', 'tornillos',
+      'Bulones', 'bulones',
+      'Fijación y Cables', 'fijación y cables',
+      'Anclajes', 'anclajes',
+    ],
+    sort_order: 3,
+  },
+  {
+    label: 'Seguridad', icon: '🦺',
+    slugs: [
+      'seguridad', 'Seguridad',
+      'Seguridad Industrial', 'seguridad industrial',
+      'EPP', 'epp',
+      'Seguridad Industrial (EPP)',
+      'Casco', 'casco', 'Guantes', 'guantes', 'Lentes', 'lentes',
+    ],
+    sort_order: 4,
+  },
+  {
+    label: 'Insumos', icon: '🏭',
+    slugs: [
+      'insumos', 'Insumos',
+      'Insumos Industriales', 'insumos industriales',
+      'Insumos y Mantenimiento', 'insumos y mantenimiento',
+      'Mantenimiento', 'mantenimiento',
+      'Lubricantes', 'lubricantes',
+      'Adhesivos', 'adhesivos',
+      'Industrial', 'industrial',
+    ],
+    sort_order: 5,
+  },
+  {
+    label: 'Otros', icon: '📦',
+    slugs: ['otros', 'Otros'],
+    sort_order: 6,
+  },
 ];
 
 type Status = 'loading' | 'ready' | 'error';
