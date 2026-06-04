@@ -10,11 +10,11 @@ const port = Number(process.env.PORT || 3000);
 const basePath = process.env.BASE_PATH || process.env.VITE_BASE_PATH || "/";
 
 export default defineConfig({
-  base: basePath,
+  base: "/OxigasWeb/",
   plugins: [
     react(),
-    tailwindcss(),
-  ],
+    tailwindcss(
+    ),
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
