@@ -39,6 +39,8 @@ const SIDEBAR_PARENTS: { label: string; icon: string; childLabels: string[] }[] 
   { label: 'Herramientas', icon: '🔨', childLabels: ['Herramientas Manuales', 'Herramientas Eléctricas'] },
 ];
 
+const EXACT_PREFIX = '__exact__';
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function Productos() {
@@ -56,6 +58,7 @@ export default function Productos() {
   const [expandedParents, setExpandedParents] = useState<Set<string>>(
     new Set(SIDEBAR_PARENTS.map(p => p.label))
   );
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
 
   /** Devuelve el índice del grupo al que pertenece una categoría (por label o por slug). -1 si no matchea. */
   const findGroup = (cat: string): number => {
@@ -174,24 +177,51 @@ export default function Productos() {
     return items;
   }, [CATEGORY_GROUPS, countByGroup]);
 
-  // Filtrado por grupo: un producto pasa si está en el mismo grupo que la categoría seleccionada.
-  // Si la categoría es un "padre" (ej: "Herramientas"), incluye todos sus grupos hijos.
+  // Subcategorías reales por grupo (categorías exactas de los productos, agrupadas y contadas)
+  const subsByGroup = useMemo(() => {
+    const result = new Map<number, Array<{ cat: string; count: number }>>();
+    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
+    for (const p of products) {
+      if (!p.category) continue;
+      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) continue;
+      if (terms.length > 0) {
+        const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
+        if (!terms.every((t) => hay.includes(t))) continue;
+      }
+      const gi = findGroup(p.category);
+      if (gi < 0) continue;
+      if (!result.has(gi)) result.set(gi, []);
+      const arr = result.get(gi)!;
+      const existing = arr.find(x => normalize(x.cat) === normalize(p.category!));
+      if (existing) { existing.count++; } else { arr.push({ cat: p.category, count: 1 }); }
+    }
+    result.forEach((items) => items.sort((a, b) => a.cat.localeCompare(b.cat, 'es')));
+    return result;
+  }, [products, selectedBrands, query, CATEGORY_GROUPS]);
+
+  // Filtrado: soporta filtro por grupo, por grupo padre, y por categoría exacta (EXACT_PREFIX)
   const filtered = useMemo(() => {
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
-    const parentCfg = SIDEBAR_PARENTS.find(p => p.label === category);
-    const targetGroupIdx = parentCfg ? -2 : findGroup(category);
+    const isExact = category.startsWith(EXACT_PREFIX);
+    const exactCat = isExact ? category.slice(EXACT_PREFIX.length) : '';
+    const parentCfg = isExact ? null : SIDEBAR_PARENTS.find(p => p.label === category);
+    const targetGroupIdx = (isExact || parentCfg) ? -2 : findGroup(category);
     return products.filter((p) => {
       if (category !== ALL) {
-        const pGroupIdx = findGroup(p.category || '');
-        if (parentCfg) {
-          const childIndices = parentCfg.childLabels
-            .map(lbl => CATEGORY_GROUPS.findIndex(g => g.label === lbl))
-            .filter(i => i >= 0);
-          if (!childIndices.includes(pGroupIdx)) return false;
-        } else if (targetGroupIdx >= 0) {
-          if (pGroupIdx !== targetGroupIdx) return false;
+        if (isExact) {
+          if (normalize(p.category || '') !== normalize(exactCat)) return false;
         } else {
-          if (normalize(p.category || '') !== normalize(category)) return false;
+          const pGroupIdx = findGroup(p.category || '');
+          if (parentCfg) {
+            const childIndices = parentCfg.childLabels
+              .map(lbl => CATEGORY_GROUPS.findIndex(g => g.label === lbl))
+              .filter(i => i >= 0);
+            if (!childIndices.includes(pGroupIdx)) return false;
+          } else if (targetGroupIdx >= 0) {
+            if (pGroupIdx !== targetGroupIdx) return false;
+          } else {
+            if (normalize(p.category || '') !== normalize(category)) return false;
+          }
         }
       }
       if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) return false;
@@ -282,6 +312,8 @@ export default function Productos() {
               </button>
 
               {sidebarItems.map((item) => {
+
+                // ── Herramientas parent row ──
                 if (item.type === 'parent') {
                   const isActive = category === item.label;
                   const isExpanded = expandedParents.has(item.label);
@@ -302,11 +334,7 @@ export default function Productos() {
                           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
                             {item.count}
                           </span>
-                          <button
-                            onClick={() => setExpandedParents(prev => { const n = new Set(prev); n.has(item.label) ? n.delete(item.label) : n.add(item.label); return n; })}
-                            className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors"
-                            aria-label={isExpanded ? 'Colapsar' : 'Expandir'}
-                          >
+                          <button onClick={() => setExpandedParents(prev => { const n = new Set(prev); n.has(item.label) ? n.delete(item.label) : n.add(item.label); return n; })} className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors">
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform text-[hsl(var(--text-soft))] ${isExpanded ? 'rotate-180' : ''}`} />
                           </button>
                         </div>
@@ -315,46 +343,85 @@ export default function Productos() {
                   );
                 }
 
+                // ── Sub-grupo (ej: Herramientas Manuales / Eléctricas) ──
                 if (item.type === 'child') {
                   if (!expandedParents.has(item.parentLabel)) return null;
-                  const isActive = findGroup(category) === item.gi;
+                  const isGroupActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
+                  const isExpanded = expandedGroups.has(item.gi);
+                  const subs = subsByGroup.get(item.gi) ?? [];
                   return (
-                    <button
-                      key={item.label}
-                      onClick={() => setCategory(isActive ? ALL : item.label)}
-                      className={`w-full flex items-center justify-between pl-9 pr-4 py-2 text-sm transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${
-                        isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span aria-hidden="true">{item.icon}</span>
-                        {item.label}
-                      </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
-                        {item.count}
-                      </span>
-                    </button>
+                    <div key={item.label}>
+                      <div className={`flex items-center border-b border-[hsl(var(--surface-3))]/40 ${isGroupActive ? 'bg-primary/10' : ''}`}>
+                        <button
+                          onClick={() => setCategory(isGroupActive ? ALL : item.label)}
+                          className={`flex-1 flex items-center gap-2 pl-9 pr-2 py-2 text-sm transition-colors text-left ${isGroupActive ? 'text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:text-primary'}`}
+                        >
+                          <span aria-hidden="true">{item.icon}</span>
+                          {item.label}
+                        </button>
+                        <div className="flex items-center gap-1 pr-3">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isGroupActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
+                            {item.count}
+                          </span>
+                          {subs.length > 1 && (
+                            <button onClick={() => setExpandedGroups(prev => { const n = new Set(prev); n.has(item.gi) ? n.delete(item.gi) : n.add(item.gi); return n; })} className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors">
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform text-[hsl(var(--text-soft))] ${isExpanded ? 'rotate-180' : ''}`} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {isExpanded && subs.map(({ cat, count }) => {
+                        const isSubActive = category === EXACT_PREFIX + cat;
+                        return (
+                          <button key={cat} onClick={() => setCategory(isSubActive ? ALL : EXACT_PREFIX + cat)}
+                            className={`w-full flex items-center justify-between pl-14 pr-4 py-1.5 text-xs transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${isSubActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                          >
+                            <span className="truncate">{cat}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${isSubActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>{count}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   );
                 }
 
-                // type === 'group'
-                const isActive = findGroup(category) === item.gi;
+                // ── Grupo estándar (Gases, Soldadura, Fijación, etc.) ──
+                const isGroupActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
+                const isExpanded = expandedGroups.has(item.gi);
+                const subs = subsByGroup.get(item.gi) ?? [];
                 return (
-                  <button
-                    key={item.label}
-                    onClick={() => setCategory(isActive ? ALL : item.label)}
-                    className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${
-                      isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span aria-hidden="true">{item.icon}</span>
-                      {item.label}
-                    </span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
-                      {item.count}
-                    </span>
-                  </button>
+                  <div key={item.label}>
+                    <div className={`flex items-center border-b border-[hsl(var(--surface-3))]/40 ${isGroupActive ? 'bg-primary/10' : ''}`}>
+                      <button
+                        onClick={() => setCategory(isGroupActive ? ALL : item.label)}
+                        className={`flex-1 flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors text-left ${isGroupActive ? 'text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:text-primary'}`}
+                      >
+                        <span aria-hidden="true">{item.icon}</span>
+                        {item.label}
+                      </button>
+                      <div className="flex items-center gap-1 pr-3">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isGroupActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
+                          {item.count}
+                        </span>
+                        {subs.length > 1 && (
+                          <button onClick={() => setExpandedGroups(prev => { const n = new Set(prev); n.has(item.gi) ? n.delete(item.gi) : n.add(item.gi); return n; })} className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors">
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform text-[hsl(var(--text-soft))] ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {isExpanded && subs.map(({ cat, count }) => {
+                      const isSubActive = category === EXACT_PREFIX + cat;
+                      return (
+                        <button key={cat} onClick={() => setCategory(isSubActive ? ALL : EXACT_PREFIX + cat)}
+                          className={`w-full flex items-center justify-between pl-9 pr-4 py-1.5 text-xs transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${isSubActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                        >
+                          <span className="truncate">{cat}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${isSubActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>
