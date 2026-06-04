@@ -13,8 +13,8 @@ export default defineConfig({
   base: "/OxigasWeb/",
   plugins: [
     react(),
-    tailwindcss(
-    ),
+    tailwindcss(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
