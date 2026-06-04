@@ -6,12 +6,8 @@ import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 export function Services() {
   const { groups, status } = useCategoryGroups();
 
-  // "Ofertas" tiene su propia sección — nunca se muestra aquí.
-  // useCategoryGroups ya filtra "Ofertas" desde la DB, pero este filtro
-  // actúa como segunda capa de seguridad para el fallback local.
-  const categorias = groups.filter(
-    (g) => g.label.toLowerCase() !== 'ofertas'
-  );
+  const HOME_LABELS = ['Gases', 'Soldadura', 'Herramientas Manuales', 'Herramientas Eléctricas'];
+  const categorias = groups.filter((g) => HOME_LABELS.includes(g.label));
 
   return (
     <section id="productos" className="py-24 bg-[hsl(var(--surface-0))]">

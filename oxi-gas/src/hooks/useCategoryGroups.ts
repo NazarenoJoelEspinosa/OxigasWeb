@@ -62,15 +62,10 @@ export const DEFAULT_GROUPS: CategoryGroup[] = [
     sort_order: 1,
   },
   {
-    label: 'Herramientas', icon: '🔨',
+    label: 'Herramientas Manuales', icon: '🔨',
     slugs: [
-      'herramientas', 'Herramientas',
       'herramientas manuales', 'Herramientas manuales', 'Herramientas Manuales',
-      'herramientas electricas', 'Herramientas electricas',
-      'herramientas eléctricas', 'Herramientas eléctricas', 'Herramientas Eléctricas',
-      'Amoladoras', 'amoladoras',
-      'Taladros', 'taladros',
-      'Compresores', 'compresores',
+      'herramientas', 'Herramientas',
       'Llaves', 'llaves',
       'Pinzas', 'pinzas',
       'Destornilladores', 'destornilladores',
@@ -78,6 +73,17 @@ export const DEFAULT_GROUPS: CategoryGroup[] = [
       'Herramientas de corte', 'herramientas de corte',
     ],
     sort_order: 2,
+  },
+  {
+    label: 'Herramientas Eléctricas', icon: '⚡',
+    slugs: [
+      'herramientas electricas', 'Herramientas electricas',
+      'herramientas eléctricas', 'Herramientas eléctricas', 'Herramientas Eléctricas',
+      'Amoladoras', 'amoladoras',
+      'Taladros', 'taladros',
+      'Compresores', 'compresores',
+    ],
+    sort_order: 3,
   },
   {
     label: 'Fijación y Cables', icon: '🔩',
@@ -89,7 +95,7 @@ export const DEFAULT_GROUPS: CategoryGroup[] = [
       'Fijación y Cables', 'fijación y cables',
       'Anclajes', 'anclajes',
     ],
-    sort_order: 3,
+    sort_order: 4,
   },
   {
     label: 'Seguridad', icon: '🦺',
@@ -100,7 +106,7 @@ export const DEFAULT_GROUPS: CategoryGroup[] = [
       'Seguridad Industrial (EPP)',
       'Casco', 'casco', 'Guantes', 'guantes', 'Lentes', 'lentes',
     ],
-    sort_order: 4,
+    sort_order: 5,
   },
   {
     label: 'Insumos', icon: '🏭',
@@ -113,12 +119,12 @@ export const DEFAULT_GROUPS: CategoryGroup[] = [
       'Adhesivos', 'adhesivos',
       'Industrial', 'industrial',
     ],
-    sort_order: 5,
+    sort_order: 6,
   },
   {
     label: 'Otros', icon: '📦',
     slugs: ['otros', 'Otros'],
-    sort_order: 6,
+    sort_order: 7,
   },
 ];
 
