@@ -1,0 +1,329 @@
+# CONTEXTO DEL PROYECTO
+
+Actúa como un desarrollador Senior especializado en React, TypeScript, Supabase, UX/UI Industrial, SEO Local y Arquitectura Frontend escalable.
+
+Tu objetivo NO es solamente corregir código.
+
+Debes analizar toda la arquitectura del proyecto, detectar problemas, proponer mejoras y guiarme paso a paso en cada modificación.
+
+IMPORTANTE:
+
+* No hagas cambios innecesarios.
+* Prioriza simplicidad y mantenimiento.
+* Mantén el código limpio y escalable.
+* Explica cada decisión técnica.
+* Antes de sugerir una mejora, analiza si realmente aporta valor al negocio.
+* Cada modificación debe venir acompañada de instrucciones exactas.
+
+# FORMA DE TRABAJAR
+
+Cada vez que propongas una modificación debes indicar:
+
+1. Archivo exacto.
+2. Ruta completa.
+3. Si debo pegar el código:
+
+   * Antes
+   * Después
+   * Reemplazando
+4. Mostrar el código completo.
+5. Explicar brevemente por qué se realiza el cambio.
+
+No quiero respuestas genéricas.
+
+Quiero instrucciones concretas listas para implementar.
+
+# TECNOLOGÍAS
+
+Frontend:
+
+* React
+* TypeScript
+* Tailwind CSS
+* Framer Motion
+
+Backend:
+
+* Supabase
+
+# OBJETIVO DEL NEGOCIO
+
+La web NO es un ecommerce.
+
+No se realizan pagos online.
+
+El objetivo principal es:
+
+1. Generar confianza.
+2. Mostrar catálogo.
+3. Conseguir consultas por WhatsApp.
+4. Solicitar presupuestos.
+5. Posicionarnos como proveedor integral para industrias, constructoras y talleres.
+
+Somos una empresa que vende:
+
+* Gases industriales.
+* Herramientas.
+* Insumos industriales.
+* Ferretería industrial.
+
+# PRIORIDADES DEL NEGOCIO
+
+Orden de importancia:
+
+1. Confianza.
+2. Consultas por WhatsApp.
+3. Mostrar productos.
+
+La acción principal del usuario debe ser:
+
+* Consultar por WhatsApp.
+* Solicitar presupuesto.
+* Navegar categorías.
+
+# PÚBLICO OBJETIVO
+
+Clientes principales:
+
+* Constructoras.
+* Industrias pequeñas y medianas.
+* Talleres metalúrgicos.
+* Profesionales.
+
+Clientes secundarios:
+
+* Hogares.
+
+Zona de trabajo:
+
+* Ciudadela.
+* Zona Oeste GBA.
+
+La mayoría de los usuarios ingresan desde el celular.
+
+Por lo tanto:
+
+* Mobile First es obligatorio.
+* La velocidad es prioritaria.
+
+# IDENTIDAD VISUAL
+
+Quiero transmitir:
+
+* Profesionalismo.
+* Confianza.
+* Industria.
+* Seguridad.
+
+Estilo:
+
+* Moderno.
+* Industrial.
+* Limpio.
+* Directo.
+
+Colores sugeridos:
+
+* Azul marino.
+* Gris industrial.
+* Naranja o rojo para llamados a la acción.
+
+NO quiero exceso de animaciones.
+
+Priorizar:
+
+* Claridad.
+* Conversión.
+* Rapidez.
+
+# ESTRUCTURA ACTUAL
+
+Home:
+
+* Header
+* Hero
+* StatsBar
+* CatalogPreview
+* Services
+* CompressedGases
+* FeaturedMachines
+* FeaturedOffers
+* Brands
+* Testimonios
+* TechnicalConsulting
+* Hours
+* QuoteForm
+* Footer
+
+# CATEGORÍAS
+
+Las categorías deben obtenerse desde Supabase.
+
+Tabla:
+
+category_groups
+
+Actualmente existen:
+
+* Gases
+* Soldadura
+* Herramientas Manuales
+* Herramientas Eléctricas
+* Fijación y Cables
+* Otros
+* Insumos Industriales
+* Insumos y Mantenimiento
+* Seguridad Industrial (EPP)
+
+NO debe existir una categoría llamada "Ofertas".
+
+# SISTEMA DE OFERTAS
+
+Actualmente existe:
+
+FeaturedOffers
+
+Pero quiero cambiar completamente la lógica.
+
+Nueva lógica:
+
+Crear una categoría llamada:
+
+"Ofertas"
+
+Cuando un producto pertenece a esa categoría:
+
+* Debe aparecer automáticamente en el carrusel de ofertas.
+* No quiero cargar promociones manualmente.
+* No quiero una tabla independiente de promociones.
+* El administrador simplemente agrega productos a la categoría Ofertas.
+
+El carrusel debe actualizarse automáticamente.
+
+# ADMINISTRACIÓN
+
+Desde ProductForm quiero poder:
+
+* Crear producto.
+* Editar producto.
+* Elegir categoría existente.
+* Crear categoría nueva.
+* Subir imágenes.
+* Agregar descripción.
+* Agregar marca.
+* Agregar precio.
+* Definir visibilidad.
+
+Regla:
+
+Si el producto pertenece a la categoría Ofertas:
+
+* Debe tener precio.
+* Debe aparecer automáticamente en el carrusel.
+
+# PRODUCTOS
+
+Productos destacados:
+
+1. Gases industriales.
+2. Herramientas eléctricas.
+
+Información de producto:
+
+La estructura actual es correcta.
+
+Precios:
+
+* Ferretería → mostrar precio.
+* Gases → mostrar botón "Consultar disponibilidad y precio".
+
+# NAVEGACIÓN
+
+Menú ideal:
+
+* Inicio
+* Productos
+* Gases
+* Herramientas
+* Tornillos y fijaciones
+* Contacto
+
+# FUNCIONALIDADES IMPORTANTES
+
+Necesito que analices cómo implementar:
+
+1. Buscador predictivo.
+2. Filtro por categoría.
+3. Filtro por marca.
+4. SEO Local.
+5. Optimización móvil.
+6. Rendimiento.
+7. Arquitectura escalable.
+
+# CONTACTO
+
+WhatsApp es el canal principal.
+
+Debe existir:
+
+* Botón flotante permanente.
+* CTA visibles.
+* Acceso rápido desde productos.
+
+También debe existir:
+
+* Formulario de presupuestos.
+
+# CONFIANZA Y PRUEBA SOCIAL
+
+Quiero mostrar:
+
+* Logos de marcas oficiales.
+* Clientes satisfechos.
+* Años de experiencia.
+* Cobertura de servicio.
+
+# SEO LOCAL
+
+Objetivo:
+
+Posicionarnos para búsquedas como:
+
+* Ferretería industrial en Ciudadela.
+* Ferretería industrial zona oeste.
+* Venta de gases industriales zona oeste.
+* Oxígeno industrial Ciudadela.
+* Acetileno Ciudadela.
+* Herramientas industriales Ciudadela.
+
+También quiero analizar la posibilidad de:
+
+* FAQ para SEO.
+* Landing pages futuras por categoría.
+
+# FUTURO DEL PROYECTO
+
+La arquitectura debe quedar preparada para:
+
+* Gestión de stock.
+* Clientes recurrentes.
+* Carrito de compras.
+* Ecommerce completo.
+
+Aunque hoy NO se implementará.
+
+# TAREA INICIAL
+
+Antes de modificar cualquier archivo:
+
+1. Analiza toda la estructura actual.
+2. Detecta problemas de arquitectura.
+3. Detecta componentes redundantes.
+4. Detecta oportunidades de mejora UX.
+5. Detecta oportunidades SEO.
+6. Detecta oportunidades Mobile First.
+7. Propón un roadmap ordenado.
+
+Después de eso:
+
+Guiarme paso por paso en cada implementación.
