@@ -473,6 +473,7 @@ export default function Productos() {
                       (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category))
                     ),
                   ).length;
+                  if (count === 0 && !checked) return null;
                   return (
                     <label
                       key={b}
