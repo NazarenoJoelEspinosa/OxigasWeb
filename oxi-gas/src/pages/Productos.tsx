@@ -30,6 +30,7 @@ type Product = {
 };
 
 const ALL = 'all';
+const PRODUCTS_PER_PAGE = 12;
 
 function normalize(v: string) {
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -241,6 +242,20 @@ export default function Productos() {
   }, [products, category, selectedBrands, query, CATEGORY_GROUPS]);
 
   const hasFilters = query !== '' || selectedBrands.size > 0 || category !== ALL;
+
+  // ─── Paginación ────────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Resetear a página 1 cuando cambian los filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, selectedBrands, category]);
+
+  const totalPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE);
+  const paginatedProducts = filtered.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE,
+  );
 
   const resetFilters = () => {
     setQuery('');
@@ -503,17 +518,75 @@ export default function Productos() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
-                {filtered.map((product, i) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    index={i}
-                    onOpen={() => setSelected(product)}
-                    cart={cart}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
+                  {paginatedProducts.map((product, i) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      index={i}
+                      onOpen={() => setSelected(product)}
+                      cart={cart}
+                    />
+                  ))}
+                </div>
+
+                {/* ─── Paginación ───────────────────────────────────────── */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-1.5 mt-10">
+                    {/* Botón anterior */}
+                    <button
+                      onClick={() => { setCurrentPage((p) => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      disabled={currentPage === 1}
+                      className="h-9 px-3 rounded-xl border border-[hsl(var(--surface-3))] text-sm font-medium text-[hsl(var(--text-main))] hover:border-primary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      ←
+                    </button>
+
+                    {/* Números de página */}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Mostrar: primera, última, actual y las 2 adyacentes; el resto como "..."
+                      const isFirst = page === 1;
+                      const isLast = page === totalPages;
+                      const isNearCurrent = Math.abs(page - currentPage) <= 1;
+                      if (!isFirst && !isLast && !isNearCurrent) {
+                        // Mostrar "..." solo una vez entre grupos
+                        const prevPage = page - 1;
+                        const prevIsFirst = prevPage === 1;
+                        const prevIsNearCurrent = Math.abs(prevPage - currentPage) <= 1;
+                        if (!prevIsFirst && !prevIsNearCurrent) return null;
+                        return (
+                          <span key={`ellipsis-${page}`} className="h-9 w-9 flex items-center justify-center text-sm text-[hsl(var(--text-soft))]">
+                            …
+                          </span>
+                        );
+                      }
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-all duration-150 ${
+                            page === currentPage
+                              ? 'bg-primary text-white border-primary shadow-md shadow-primary/30'
+                              : 'border-[hsl(var(--surface-3))] text-[hsl(var(--text-main))] hover:border-primary hover:text-primary'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+
+                    {/* Botón siguiente */}
+                    <button
+                      onClick={() => { setCurrentPage((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      disabled={currentPage === totalPages}
+                      className="h-9 px-3 rounded-xl border border-[hsl(var(--surface-3))] text-sm font-medium text-[hsl(var(--text-main))] hover:border-primary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      →
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
