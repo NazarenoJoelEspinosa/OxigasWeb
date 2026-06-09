@@ -32,7 +32,7 @@ type Product = {
 const ALL = 'all';
 const PRODUCTS_PER_PAGE = 12;
 
-type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name-asc';
+type SortOption = 'default' | 'name-asc';
 
 function normalize(v: string) {
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -249,12 +249,8 @@ export default function Productos() {
 
   // ─── Ordenamiento ──────────────────────────────────────────────────────────
   const sorted = useMemo(() => {
-    if (sortBy === 'default') return filtered;
-    const arr = [...filtered];
-    if (sortBy === 'price-asc')  return arr.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
-    if (sortBy === 'price-desc') return arr.sort((a, b) => (b.price ?? -1) - (a.price ?? -1));
-    if (sortBy === 'name-asc')   return arr.sort((a, b) => a.name.localeCompare(b.name, 'es'));
-    return arr;
+    if (sortBy === 'name-asc') return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return filtered;
   }, [filtered, sortBy]);
 
   // ─── Paginación ────────────────────────────────────────────────────────────
@@ -353,8 +349,6 @@ export default function Productos() {
           >
             <option value="default">Orden</option>
             <option value="name-asc">Nombre A→Z</option>
-            <option value="price-asc">Precio ↑</option>
-            <option value="price-desc">Precio ↓</option>
           </select>
         </div>
 
@@ -493,12 +487,10 @@ export default function Productos() {
                 <ArrowUpDown className="h-3.5 w-3.5 text-[hsl(var(--text-soft))]" />
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Ordenar</p>
               </div>
-              {(['default', 'name-asc', 'price-asc', 'price-desc'] as SortOption[]).map((opt) => {
+              {(['default', 'name-asc'] as SortOption[]).map((opt) => {
                 const labels: Record<SortOption, string> = {
                   default: 'Relevancia',
                   'name-asc': 'Nombre A→Z',
-                  'price-asc': 'Precio: menor a mayor',
-                  'price-desc': 'Precio: mayor a menor',
                 };
                 return (
                   <button key={opt} onClick={() => setSortBy(opt)}
