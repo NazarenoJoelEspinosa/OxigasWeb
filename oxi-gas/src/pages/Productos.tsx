@@ -32,7 +32,7 @@ type Product = {
 const ALL = 'all';
 const PRODUCTS_PER_PAGE = 12;
 
-type SortOption = 'default' | 'name-asc';
+type SortOption = 'category-asc' | 'name-asc';
 
 function normalize(v: string) {
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -57,7 +57,7 @@ export default function Productos() {
   const [query, setQuery] = useState(() => new URLSearchParams(search).get('q') ?? '');
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>(() => new URLSearchParams(search).get('categoria') ?? ALL);
-  const [sortBy, setSortBy] = useState<SortOption>('default');
+  const [sortBy, setSortBy] = useState<SortOption>('category-asc');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Sincronizar con parámetros de URL cuando el usuario navega desde el header
@@ -249,8 +249,9 @@ export default function Productos() {
 
   // ─── Ordenamiento ──────────────────────────────────────────────────────────
   const sorted = useMemo(() => {
-    if (sortBy === 'name-asc') return [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'es'));
-    return filtered;
+    const arr = [...filtered];
+    if (sortBy === 'name-asc') return arr.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return arr.sort((a, b) => (a.category ?? '').localeCompare(b.category ?? '', 'es'));
   }, [filtered, sortBy]);
 
   // ─── Paginación ────────────────────────────────────────────────────────────
@@ -276,7 +277,7 @@ export default function Productos() {
     setQuery('');
     setSelectedBrands(new Set());
     setCategory(ALL);
-    setSortBy('default');
+    setSortBy('category-asc');
   };
 
   const toggleBrand = (b: string) => {
@@ -347,7 +348,7 @@ export default function Productos() {
             onChange={(e) => setSortBy(e.target.value as SortOption)}
             className="h-11 px-3 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40 shrink-0"
           >
-            <option value="default">Orden</option>
+            <option value="category-asc">Categoría</option>
             <option value="name-asc">Nombre A→Z</option>
           </select>
         </div>
@@ -487,9 +488,9 @@ export default function Productos() {
                 <ArrowUpDown className="h-3.5 w-3.5 text-[hsl(var(--text-soft))]" />
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Ordenar</p>
               </div>
-              {(['default', 'name-asc'] as SortOption[]).map((opt) => {
+              {(['category-asc', 'name-asc'] as SortOption[]).map((opt) => {
                 const labels: Record<SortOption, string> = {
-                  default: 'Relevancia',
+                  'category-asc': 'Categoría',
                   'name-asc': 'Nombre A→Z',
                 };
                 return (
