@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, ChevronDown, MessageCircle, Search, SlidersHorizontal,
+  ArrowLeft, ArrowUpDown, ChevronDown, MessageCircle, Search, SlidersHorizontal,
   X, ZoomIn,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -32,6 +32,8 @@ type Product = {
 const ALL = 'all';
 const PRODUCTS_PER_PAGE = 12;
 
+type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name-asc';
+
 function normalize(v: string) {
   return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
@@ -55,6 +57,8 @@ export default function Productos() {
   const [query, setQuery] = useState(() => new URLSearchParams(search).get('q') ?? '');
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>(() => new URLSearchParams(search).get('categoria') ?? ALL);
+  const [sortBy, setSortBy] = useState<SortOption>('default');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Sincronizar con parámetros de URL cuando el usuario navega desde el header
   useEffect(() => {
@@ -243,24 +247,40 @@ export default function Productos() {
 
   const hasFilters = query !== '' || selectedBrands.size > 0 || category !== ALL;
 
+  // ─── Ordenamiento ──────────────────────────────────────────────────────────
+  const sorted = useMemo(() => {
+    if (sortBy === 'default') return filtered;
+    const arr = [...filtered];
+    if (sortBy === 'price-asc')  return arr.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    if (sortBy === 'price-desc') return arr.sort((a, b) => (b.price ?? -1) - (a.price ?? -1));
+    if (sortBy === 'name-asc')   return arr.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return arr;
+  }, [filtered, sortBy]);
+
   // ─── Paginación ────────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Resetear a página 1 cuando cambian los filtros
+  // Resetear a página 1 cuando cambian los filtros o el orden
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, selectedBrands, category]);
+  }, [query, selectedBrands, category, sortBy]);
 
-  const totalPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE);
-  const paginatedProducts = filtered.slice(
+  const totalPages = Math.ceil(sorted.length / PRODUCTS_PER_PAGE);
+  const paginatedProducts = sorted.slice(
     (currentPage - 1) * PRODUCTS_PER_PAGE,
     currentPage * PRODUCTS_PER_PAGE,
   );
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const resetFilters = () => {
     setQuery('');
     setSelectedBrands(new Set());
     setCategory(ALL);
+    setSortBy('default');
   };
 
   const toggleBrand = (b: string) => {
@@ -283,7 +303,7 @@ export default function Productos() {
           <ArrowLeft className="h-4 w-4" /> Volver al inicio
         </Link>
 
-        <div className="flex flex-col gap-2 mb-8">
+        <div className="flex flex-col gap-2 mb-6">
           <h1 className="text-4xl font-extrabold text-[hsl(var(--text-main))]">Productos</h1>
           <p className="text-[hsl(var(--text-soft))]">
             {loading
@@ -297,9 +317,158 @@ export default function Productos() {
           </p>
         </div>
 
+        {/* ─── BARRA MOBILE (solo visible en < lg) ──────────────────────────── */}
+        <div className="flex lg:hidden gap-2 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar productos..."
+              className="w-full h-11 pl-10 pr-4 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X className="h-4 w-4 text-[hsl(var(--text-soft))]" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="relative h-11 px-3.5 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-[hsl(var(--text-main))] flex items-center gap-1.5 text-sm font-medium shrink-0"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {(selectedBrands.size > 0 || category !== ALL) && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                {selectedBrands.size + (category !== ALL ? 1 : 0)}
+              </span>
+            )}
+          </button>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="h-11 px-3 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40 shrink-0"
+          >
+            <option value="default">Orden</option>
+            <option value="name-asc">Nombre A→Z</option>
+            <option value="price-asc">Precio ↑</option>
+            <option value="price-desc">Precio ↓</option>
+          </select>
+        </div>
+
+        {/* ─── DRAWER MOBILE ────────────────────────────────────────────────── */}
+        {drawerOpen && (
+          <div className="fixed inset-0 z-[150] lg:hidden flex">
+            {/* Overlay */}
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setDrawerOpen(false)}
+            />
+            {/* Panel */}
+            <div className="relative ml-auto w-72 h-full bg-[hsl(var(--surface-0))] shadow-2xl flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-4 border-b border-[hsl(var(--surface-3))]">
+                <p className="font-bold text-[hsl(var(--text-main))]">Filtros</p>
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  className="p-1.5 rounded-full hover:bg-[hsl(var(--surface-2))] transition-colors"
+                >
+                  <X className="h-5 w-5 text-[hsl(var(--text-main))]" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                {/* Categorías en drawer */}
+                <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
+                  </div>
+                  <button
+                    onClick={() => { setCategory(ALL); setDrawerOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 ${category === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                  >
+                    Todas las categorías
+                  </button>
+                  {sidebarItems.map((item) => {
+                    if (item.type === 'parent') {
+                      const isActive = category === item.label;
+                      return (
+                        <button key={`drawer-parent-${item.label}`}
+                          onClick={() => { setCategory(isActive ? ALL : item.label); setDrawerOpen(false); }}
+                          className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 text-left ${isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                        >
+                          <span>{item.icon}</span>{item.label}
+                          <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]">{item.count}</span>
+                        </button>
+                      );
+                    }
+                    if (item.type === 'child') {
+                      const isActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
+                      return (
+                        <button key={`drawer-child-${item.label}`}
+                          onClick={() => { setCategory(isActive ? ALL : item.label); setDrawerOpen(false); }}
+                          className={`w-full flex items-center gap-2 pl-9 pr-4 py-2 text-sm transition-colors border-b border-[hsl(var(--surface-3))]/40 text-left ${isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                        >
+                          <span>{item.icon}</span>{item.label}
+                          <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]">{item.count}</span>
+                        </button>
+                      );
+                    }
+                    const isActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
+                    return (
+                      <button key={`drawer-group-${item.label}`}
+                        onClick={() => { setCategory(isActive ? ALL : item.label); setDrawerOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 text-left ${isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                      >
+                        <span>{item.icon}</span>{item.label}
+                        <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]">{item.count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Marcas en drawer */}
+                <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Marcas</p>
+                    {selectedBrands.size > 0 && (
+                      <button onClick={() => setSelectedBrands(new Set())} className="text-[10px] text-primary hover:underline font-semibold">Limpiar</button>
+                    )}
+                  </div>
+                  <div className="py-2 max-h-64 overflow-y-auto">
+                    {allBrands.map((b) => {
+                      const checked = selectedBrands.has(b);
+                      const targetGi = findGroup(category);
+                      const count = products.filter((p) => p.brand === b && (category === ALL || (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category)))).length;
+                      if (count === 0 && !checked) return null;
+                      return (
+                        <label key={b} className={`flex items-center gap-3 px-4 py-2 cursor-pointer text-sm transition-colors ${checked ? 'bg-primary/10 text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}>
+                          <input type="checkbox" checked={checked} onChange={() => toggleBrand(b)} className="h-3.5 w-3.5 rounded border-[hsl(var(--surface-3))] accent-primary" />
+                          <span className="flex-1 truncate">{b}</span>
+                          {count > 0 && <span className="text-[10px] font-bold text-[hsl(var(--text-soft))]">{count}</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón aplicar */}
+              <div className="p-4 border-t border-[hsl(var(--surface-3))]">
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  className="w-full py-3 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors"
+                >
+                  Ver {filtered.length} producto{filtered.length !== 1 ? 's' : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* ─── SIDEBAR ─────────────────────────────────────────────────── */}
-          <aside className="w-full lg:w-64 shrink-0 space-y-4">
+          {/* ─── SIDEBAR DESKTOP (oculto en mobile) ──────────────────────── */}
+          <aside className="hidden lg:block w-64 shrink-0 space-y-4">
 
             {/* Búsqueda */}
             <div className="relative">
@@ -318,7 +487,28 @@ export default function Productos() {
               )}
             </div>
 
-            {/* Categorías — grupos planos y clickeables */}
+            {/* Ordenar (desktop) */}
+            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center gap-2">
+                <ArrowUpDown className="h-3.5 w-3.5 text-[hsl(var(--text-soft))]" />
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Ordenar</p>
+              </div>
+              {(['default', 'name-asc', 'price-asc', 'price-desc'] as SortOption[]).map((opt) => {
+                const labels: Record<SortOption, string> = {
+                  default: 'Relevancia',
+                  'name-asc': 'Nombre A→Z',
+                  'price-asc': 'Precio: menor a mayor',
+                  'price-desc': 'Precio: mayor a menor',
+                };
+                return (
+                  <button key={opt} onClick={() => setSortBy(opt)}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${sortBy === opt ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
+                  >
+                    {labels[opt]}
+                  </button>
+                );
+              })}
+            </div>
             <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
               <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
@@ -537,7 +727,7 @@ export default function Productos() {
                   <div className="flex items-center justify-center gap-1.5 mt-10">
                     {/* Botón anterior */}
                     <button
-                      onClick={() => { setCurrentPage((p) => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
                       className="h-9 px-3 rounded-xl border border-[hsl(var(--surface-3))] text-sm font-medium text-[hsl(var(--text-main))] hover:border-primary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
@@ -565,7 +755,7 @@ export default function Productos() {
                       return (
                         <button
                           key={page}
-                          onClick={() => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          onClick={() => goToPage(page)}
                           className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-all duration-150 ${
                             page === currentPage
                               ? 'bg-primary text-white border-primary shadow-md shadow-primary/30'
@@ -579,7 +769,7 @@ export default function Productos() {
 
                     {/* Botón siguiente */}
                     <button
-                      onClick={() => { setCurrentPage((p) => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onClick={() => goToPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
                       className="h-9 px-3 rounded-xl border border-[hsl(var(--surface-3))] text-sm font-medium text-[hsl(var(--text-main))] hover:border-primary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
