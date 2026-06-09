@@ -26,38 +26,8 @@
   --color-whatsapp-hover: hsl(var(--whatsapp-hover));
 }
 
+/* ─── Tema único: siempre claro ─────────────────────────────────────────── */
 :root {
-  --background: 212 53% 11%;
-  --foreground: 210 33% 95%;
-  --primary: 208 56% 41%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 212 45% 19%;
-  --secondary-foreground: 210 33% 95%;
-  --muted: 219 40% 14%;
-  --muted-foreground: 211 24% 64%;
-  --accent: 208 56% 41%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 24 100% 41%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 213 35% 25%;
-  --input: 213 35% 25%;
-  --ring: 208 56% 41%;
-  --card: 219 40% 14%;
-  --card-foreground: 210 33% 95%;
-  --whatsapp: 142 70% 49%;
-  --whatsapp-hover: 142 70% 43%;
-  --radius: 0.5rem;
-
-  --surface-0: 212 53% 11%;
-  --surface-1: 212 45% 18%;
-  --surface-2: 214 40% 14%;
-  --surface-3: 213 35% 25%;
-  --text-main: 210 33% 95%;
-  --text-soft: 211 24% 64%;
-  --hero-overlay: 212 53% 11%;
-}
-
-html.light {
   color-scheme: light;
   --background: 36 100% 98%;
   --foreground: 24 28% 18%;
@@ -76,6 +46,9 @@ html.light {
   --ring: 27 95% 54%;
   --card: 0 0% 100%;
   --card-foreground: 24 28% 18%;
+  --whatsapp: 142 70% 49%;
+  --whatsapp-hover: 142 70% 43%;
+  --radius: 0.5rem;
 
   --surface-0: 36 100% 98%;
   --surface-1: 0 0% 100%;
@@ -84,6 +57,16 @@ html.light {
   --text-main: 24 28% 18%;
   --text-soft: 24 18% 42%;
   --hero-overlay: 28 95% 24%;
+}
+
+/* ─── Header siempre oscuro (independiente del tema) ────────────────────── */
+.header-dark {
+  --h-bg:      212 53% 11%;
+  --h-surface: 212 45% 18%;
+  --h-surface2: 214 40% 14%;
+  --h-border:  213 35% 25%;
+  --h-text:    210 33% 95%;
+  --h-soft:    211 24% 64%;
 }
 
 @layer base {
