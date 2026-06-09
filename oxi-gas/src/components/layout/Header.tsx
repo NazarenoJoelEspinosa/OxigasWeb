@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Menu, X, Sun, Moon, ChevronDown, ArrowRight, ShoppingCart, Search } from 'lucide-react';
+import { Menu, X, ChevronDown, ArrowRight, ShoppingCart, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { useThemeContext } from '@/context/ThemeContext';
 import { useCart } from '@/context/CartContext';
 import { QuoteCart } from '@/components/features/QuoteCart';
 import { useCategoryGroups } from '@/hooks/useCategoryGroups';
@@ -25,7 +24,6 @@ function useHashNavigate() {
 }
 
 export function Header() {
-  const { theme, toggleTheme } = useThemeContext();
   const cart = useCart();
   const { groups } = useCategoryGroups();
   const [, setLocation] = useLocation();
@@ -70,10 +68,10 @@ export function Header() {
     <>
       <header
         className={cn(
-          'fixed top-0 w-full z-50 transition-all duration-300 border-b',
+          'header-dark fixed top-0 w-full z-50 transition-all duration-300 border-b',
           isScrolled
-            ? 'bg-[hsl(var(--surface-0))]/92 backdrop-blur-md shadow-lg border-[hsl(var(--surface-3))] py-3'
-            : 'bg-[hsl(var(--surface-0))] border-transparent py-4'
+            ? 'bg-[hsl(var(--h-bg))]/95 backdrop-blur-md shadow-lg border-[hsl(var(--h-border))] py-3'
+            : 'bg-[hsl(var(--h-bg))] border-transparent py-4'
         )}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center gap-4">
@@ -89,12 +87,12 @@ export function Header() {
             {mainLinks.map((link) =>
               'href' in link ? (
                 <Link key={link.name} href={link.href}
-                  className="text-[hsl(var(--text-main))] hover:text-primary font-medium transition-colors">
+                  className="text-[hsl(var(--h-text))] hover:text-primary font-medium transition-colors">
                   {link.name}
                 </Link>
               ) : (
                 <button key={link.name} type="button" onClick={() => navigateTo(link.hash)}
-                  className="text-[hsl(var(--text-main))] hover:text-primary font-medium transition-colors bg-transparent border-none cursor-pointer">
+                  className="text-[hsl(var(--h-text))] hover:text-primary font-medium transition-colors bg-transparent border-none cursor-pointer">
                   {link.name}
                 </button>
               )
@@ -102,7 +100,7 @@ export function Header() {
 
             {/* Dropdown Productos */}
             <div className="relative" onMouseEnter={() => setProductsOpen(true)} onMouseLeave={() => setProductsOpen(false)}>
-              <Link href="/productos" className="inline-flex items-center gap-2 text-[hsl(var(--text-main))] hover:text-primary font-medium transition-colors">
+              <Link href="/productos" className="inline-flex items-center gap-2 text-[hsl(var(--h-text))] hover:text-primary font-medium transition-colors">
                 Productos <ChevronDown size={16} />
               </Link>
               <AnimatePresence>
@@ -115,17 +113,17 @@ export function Header() {
                     className="absolute left-0 top-full pt-4"
                     onAnimationComplete={() => searchInputRef.current?.focus()}
                   >
-                    <div className="w-80 rounded-2xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] shadow-2xl p-3 flex flex-col gap-1">
+                    <div className="w-80 rounded-2xl border border-[hsl(var(--h-border))] bg-[hsl(var(--h-surface))] shadow-2xl p-3 flex flex-col gap-1">
                       {/* Buscador rápido */}
                       <form onSubmit={handleHeaderSearch} className="relative mb-1">
-                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--text-soft))] pointer-events-none" />
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--h-soft))] pointer-events-none" />
                         <input
                           ref={searchInputRef}
                           type="text"
                           value={headerSearch}
                           onChange={(e) => setHeaderSearch(e.target.value)}
                           placeholder="Buscar productos..."
-                          className="w-full rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-2))] pl-8 pr-4 py-2.5 text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:border-primary transition-colors"
+                          className="w-full rounded-xl border border-[hsl(var(--h-border))] bg-[hsl(var(--h-surface2))] pl-8 pr-4 py-2.5 text-sm text-[hsl(var(--h-text))] placeholder:text-[hsl(var(--h-soft))] focus:outline-none focus:border-primary transition-colors"
                         />
                       </form>
 
@@ -137,14 +135,14 @@ export function Header() {
                         Ver catálogo completo <ArrowRight size={16} />
                       </Link>
 
-                      <div className="pt-1 border-t border-[hsl(var(--surface-3))]/60">
-                        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--text-soft))]">Categorías</p>
+                      <div className="pt-1 border-t border-[hsl(var(--h-border))]/60">
+                        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--h-soft))]">Categorías</p>
                         {productLinks.map((link) => (
                           <Link
                             key={link.name}
                             href={link.href}
                             onClick={() => setProductsOpen(false)}
-                            className="block rounded-xl px-4 py-2.5 text-sm text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))] hover:text-primary transition-colors"
+                            className="block rounded-xl px-4 py-2.5 text-sm text-[hsl(var(--h-text))] hover:bg-[hsl(var(--h-surface2))] hover:text-primary transition-colors"
                           >
                             {link.name}
                           </Link>
@@ -160,7 +158,7 @@ export function Header() {
             <button
               type="button"
               onClick={() => setCartOpen(true)}
-              className="relative inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] px-4 py-2 text-[hsl(var(--text-main))] hover:border-primary transition-colors"
+              className="relative inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--h-border))] bg-[hsl(var(--h-surface))] px-4 py-2 text-[hsl(var(--h-text))] hover:border-primary transition-colors"
               aria-label="Mi cotización"
             >
               <ShoppingCart size={18} />
@@ -171,12 +169,6 @@ export function Header() {
                 </span>
               )}
             </button>
-
-            <button type="button" onClick={toggleTheme}
-              className="inline-flex items-center justify-center rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] p-2 text-[hsl(var(--text-main))] hover:border-primary transition-colors"
-              aria-label="Cambiar modo de color">
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
           </nav>
 
           {/* Mobile */}
@@ -184,7 +176,7 @@ export function Header() {
             <button
               type="button"
               onClick={() => setCartOpen(true)}
-              className="relative text-[hsl(var(--text-main))] p-2 hover:bg-[hsl(var(--surface-1))] rounded-lg transition-colors border border-[hsl(var(--surface-3))]"
+              className="relative text-[hsl(var(--h-text))] p-2 hover:bg-[hsl(var(--h-surface))] rounded-lg transition-colors border border-[hsl(var(--h-border))]"
               aria-label="Mi cotización"
             >
               <ShoppingCart size={22} />
@@ -195,13 +187,8 @@ export function Header() {
               )}
             </button>
 
-            <button type="button" onClick={toggleTheme}
-              className="text-[hsl(var(--text-main))] p-2 hover:bg-[hsl(var(--surface-1))] rounded-lg transition-colors border border-[hsl(var(--surface-3))]"
-              aria-label="Cambiar modo de color">
-              {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
-            </button>
             <button
-              className="text-[hsl(var(--text-main))] p-2 hover:bg-[hsl(var(--surface-1))] rounded-lg transition-colors"
+              className="text-[hsl(var(--h-text))] p-2 hover:bg-[hsl(var(--h-surface))] rounded-lg transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Abrir menú"
             >
@@ -217,7 +204,7 @@ export function Header() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden bg-[hsl(var(--surface-1))] border-t border-[hsl(var(--surface-3))] overflow-hidden shadow-xl"
+              className="lg:hidden bg-[hsl(var(--h-surface))] border-t border-[hsl(var(--h-border))] overflow-hidden shadow-xl"
             >
               <div className="px-4 py-6 flex flex-col space-y-2">
                 <Link href="/productos" onClick={() => setMobileMenuOpen(false)}
@@ -228,20 +215,20 @@ export function Header() {
                   'href' in link ? (
                     <Link key={link.name} href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))]">
+                      className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--h-surface2))] text-[hsl(var(--h-text))]">
                       {link.name}
                     </Link>
                   ) : (
                     <button key={link.name} type="button"
                       onClick={() => { setMobileMenuOpen(false); navigateTo(link.hash); }}
-                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))] bg-transparent border-none cursor-pointer">
+                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-[hsl(var(--h-surface2))] text-[hsl(var(--h-text))] bg-transparent border-none cursor-pointer">
                       {link.name}
                     </button>
                   )
                 )}
                 {productLinks.map((link) => (
                   <Link key={link.name} href={link.href} onClick={() => setMobileMenuOpen(false)}
-                    className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--surface-2))] text-[hsl(var(--text-main))]">
+                    className="block px-4 py-3 rounded-lg hover:bg-[hsl(var(--h-surface2))] text-[hsl(var(--h-text))]">
                     {link.name}
                   </Link>
                 ))}
