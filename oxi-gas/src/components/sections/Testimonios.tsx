@@ -27,7 +27,7 @@ const testimonials: Testimonial[] = [
     text: 'Muy buena ferretería, excelente atención y buenos precios.',
     stars: 5,
     initials: 'J',
-    color: 'from-orange-500 to-orange-600',
+    color: 'from-blue-600 to-blue-700',
   },
   {
     name: 'Gabriel Campanelli',
