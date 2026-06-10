@@ -29,34 +29,34 @@
 /* ─── Tema único: siempre claro ─────────────────────────────────────────── */
 :root {
   color-scheme: light;
-  --background: 36 100% 98%;
-  --foreground: 24 28% 18%;
-  --primary: 27 95% 54%;
+  --background: 0 0% 100%;
+  --foreground: 213 40% 14%;
+  --primary: 213 80% 40%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 34 100% 94%;
-  --secondary-foreground: 24 28% 18%;
-  --muted: 34 55% 96%;
-  --muted-foreground: 24 18% 42%;
-  --accent: 30 95% 54%;
+  --secondary: 210 55% 94%;
+  --secondary-foreground: 213 40% 14%;
+  --muted: 210 30% 96%;
+  --muted-foreground: 213 20% 45%;
+  --accent: 213 80% 40%;
   --accent-foreground: 0 0% 100%;
   --destructive: 10 80% 54%;
   --destructive-foreground: 0 0% 100%;
-  --border: 28 40% 82%;
-  --input: 28 40% 82%;
-  --ring: 27 95% 54%;
+  --border: 213 25% 84%;
+  --input: 213 25% 84%;
+  --ring: 213 80% 40%;
   --card: 0 0% 100%;
-  --card-foreground: 24 28% 18%;
+  --card-foreground: 213 40% 14%;
   --whatsapp: 142 70% 49%;
   --whatsapp-hover: 142 70% 43%;
   --radius: 0.5rem;
 
-  --surface-0: 36 100% 98%;
+  --surface-0: 210 30% 98%;
   --surface-1: 0 0% 100%;
-  --surface-2: 34 100% 94%;
-  --surface-3: 28 40% 82%;
-  --text-main: 24 28% 18%;
-  --text-soft: 24 18% 42%;
-  --hero-overlay: 28 95% 24%;
+  --surface-2: 210 55% 94%;
+  --surface-3: 213 25% 84%;
+  --text-main: 213 40% 14%;
+  --text-soft: 213 20% 45%;
+  --hero-overlay: 212 53% 18%;
 }
 
 /* ─── Header siempre oscuro (independiente del tema) ────────────────────── */
