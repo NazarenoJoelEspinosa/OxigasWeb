@@ -863,7 +863,7 @@ function ProductCard({
                   const val = e.target.value;
                   setCustomValues(prev => ({ ...prev, [f.key]: val }));
                 }}
-                className="w-full h-9 px-3 rounded-lg border border-amber-500/40 bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-amber-500/60 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                className="w-full h-9 px-3 rounded-lg border border-primary/40 bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))]/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             ))}
             <input
