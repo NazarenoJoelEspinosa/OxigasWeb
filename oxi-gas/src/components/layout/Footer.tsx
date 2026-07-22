@@ -1,6 +1,6 @@
 import { Phone, Clock, Instagram, MessageCircle } from 'lucide-react';
 import { WHATSAPP_URL, CONTACT, HOURS } from '@/config/constants';
-const oxiGasLogo = './images/logo_oxigas.png';
+const oxiGasLogo = './images/logo_oxigas.svg';
 
 const quickLinks = [
   { label: 'Inicio', href: '#inicio' },
