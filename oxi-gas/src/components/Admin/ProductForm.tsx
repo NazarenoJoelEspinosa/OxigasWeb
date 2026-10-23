@@ -1,20 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { stableCustomFields, errorMessage, type CustomField, type Product } from '@/lib/models';
+import { loadProducts } from '@/lib/catalog';
 
-export type CustomField = { key: string; label: string; placeholder?: string };
-
-export type Producto = {
-  id?: string;
-  code: string;
-  name: string;
-  description?: string;
-  brand?: string;
-  category?: string;
-  price?: number;
-  visible?: boolean;
-  images?: string[];
-  custom_fields?: CustomField[];
-};
+export type { CustomField } from '@/lib/models';
+export type Producto = Partial<Product> & Pick<Product, 'code' | 'name'>;
 
 interface ProductFormProps {
   producto?: Producto | null;
@@ -34,23 +24,13 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   const [categoriaPersonalizada, setCategoriaPersonalizada] = useState(false);
 
   useEffect(() => {
-    supabase.from('products').select('category')
-      .then(({ data }) => {
-        if (data) {
-          const cats = [...new Set(data.map(p => p.category).filter(Boolean) as string[])].sort();
-
-          // "Ofertas" siempre disponible, aunque no haya productos en esa categoría aún
-          const catsConOfertas = cats.includes('Ofertas')
-            ? cats
-            : [...cats, 'Ofertas'].sort();
-
-          setCategorias(catsConOfertas);
-
-          if (producto?.category && !catsConOfertas.includes(producto.category)) {
-            setCategoriaPersonalizada(true);
-          }
-        }
-      });
+    const controller = new AbortController();
+    loadProducts(controller.signal, false).then(data => {
+      if (controller.signal.aborted) return;
+      const cats = [...new Set(data.map(p => p.category).filter((v): v is string => Boolean(v)))];
+      setCategorias([...new Set([...cats, 'Ofertas'])].sort());
+    }).catch(() => { if (!controller.signal.aborted) setError('No se pudieron cargar las categorías. Podés escribir una nueva.'); });
+    return () => controller.abort();
   }, []);
   const [imagenesActuales, setImagenesActuales] = useState<string[]>(
     Array.isArray(producto?.images)
@@ -68,6 +48,11 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
 
   const handleSeleccionArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0] ?? null;
+    if (archivo && (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type) || archivo.size > 5 * 1024 * 1024)) {
+      setError('Elegí una imagen JPG, PNG o WebP de hasta 5 MB.');
+      e.target.value = ''; return;
+    }
+    setError(null);
     setArchivoImagen(archivo);
     if (archivo) {
       const lector = new FileReader();
@@ -78,8 +63,8 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
 
   const subirImagen = async (): Promise<string | null> => {
     if (!archivoImagen) return null;
-    const ext = archivoImagen.name.split('.').pop();
-    const ruta = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
+    const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as Record<string, string>)[archivoImagen.type];
+    const ruta = `${crypto.randomUUID()}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from('product-images').upload(ruta, archivoImagen, { upsert: false });
     if (uploadError) { setError('Error al subir la imagen: ' + uploadError.message); return null; }
@@ -88,7 +73,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   };
 
   const agregarCampo = () => {
-    setCustomFields(prev => [...prev, { key: `campo_${Date.now()}`, label: '', placeholder: '' }]);
+    setCustomFields(prev => [...prev, { key: `campo_${crypto.randomUUID()}`, label: '', placeholder: '' }]);
   };
 
   const actualizarCampo = (index: number, field: Partial<CustomField>) => {
@@ -101,11 +86,17 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
 
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardando) return;
     setGuardando(true);
     setError(null);
+    let uploadedPath: string | null = null;
+    let committed = false;
     try {
+      if (!codigo.trim() || !nombre.trim()) throw new Error('Completá el código y el nombre.');
+      if (precio !== '' && (!Number.isFinite(Number(precio)) || Number(precio) < 0)) throw new Error('El precio debe ser un número mayor o igual a cero.');
+      stableCustomFields(customFields);
       let urlNueva: string | null = null;
-      if (archivoImagen) { urlNueva = await subirImagen(); if (!urlNueva) { setGuardando(false); return; } }
+      if (archivoImagen) { urlNueva = await subirImagen(); if (!urlNueva) return; uploadedPath = new URL(urlNueva).pathname.split('/product-images/')[1] ?? null; }
 
 
       const imagenesSeguras = Array.isArray(imagenesActuales)
@@ -115,43 +106,32 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
       const imagenesFinal = urlNueva
         ? [...imagenesSeguras, urlNueva]
         : imagenesSeguras;
-      const camposLimpios = customFields
-        .filter(c => c.label.trim() !== '')
-        .map(c => ({
-          key: c.label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
-          label: c.label.trim(),
-          placeholder: c.placeholder?.trim() ?? '',
-        }));
-      console.log('DEBUG IMAGES:', {
-        productoImages: producto?.images,
-        imagenesActuales,
-        imagenesFinal
-      });
+      const camposLimpios = stableCustomFields(customFields);
       const datos = {
         code: codigo.trim(), name: nombre.trim(), description: descripcion.trim(),
         brand: marca.trim(), category: categoria.trim(),
-        price: categoria.toLowerCase() === 'ofertas' && precio ? parseFloat(String(precio)) : null,
+        price: categoria.trim().toLowerCase() === 'ofertas' && precio !== '' ? Number(precio) : null,
         visible: visible,
         images: imagenesFinal, custom_fields: camposLimpios,
       };
       if (producto?.id) {
-        const { error: e } = await supabase.from('products').update(datos).eq('id', producto.id);
-        if (e) { setError('Error al actualizar: ' + e.message); return; }
+        const { error: e } = await supabase.from('products').update(datos).eq('id', producto.id).select('id').single();
+        if (e) throw new Error('Error al actualizar: ' + e.message);
       } else {
         const { error: e } = await supabase.from('products').insert(datos);
-        if (e) { setError('Error al crear: ' + e.message); return; }
+        if (e) throw new Error('Error al crear: ' + e.message);
       }
+      committed = true;
       alGuardar();
-    } catch (err: any) {
-      console.error('ERROR REAL:', err);
-
-      setError(
-        err?.message ||
-        err?.error_description ||
-        JSON.stringify(err) ||
-        'Error inesperado al guardar.'
-      );
-    } finally { setGuardando(false); }
+    } catch (err: unknown) {
+      setError(errorMessage(err));
+     } finally {
+      if (uploadedPath && !committed) {
+        const { error: cleanupError } = await supabase.storage.from('product-images').remove([decodeURIComponent(uploadedPath)]);
+        if (cleanupError) console.error('No se pudo limpiar la imagen pendiente:', cleanupError.message);
+      }
+      setGuardando(false);
+    }
   };
 
   return (
@@ -285,7 +265,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
                       placeholder="Ej: 4 mm" />
                   </div>
                 </div>
-                <button type="button" onClick={() => eliminarCampo(idx)}
+                <button type="button" onClick={() => eliminarCampo(idx)} aria-label={`Quitar campo ${campo.label || idx + 1}`}
                   className="mt-5 text-destructive hover:bg-destructive/10 rounded p-1 transition-colors">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -303,7 +283,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
               {imagenesActuales.map((url, idx) => (
                 <div key={idx} className="relative group">
                   <img src={url} alt={`Imagen ${idx + 1}`} className="w-20 h-20 object-cover rounded-lg border border-border" />
-                  <button type="button" onClick={() => setImagenesActuales(prev => prev.filter(i => i !== url))}
+                  <button type="button" onClick={() => setImagenesActuales(prev => prev.filter(i => i !== url))} aria-label={`Quitar imagen ${idx + 1}`}
                     className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
                 </div>
               ))}
@@ -312,7 +292,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
         )}
         <div>
           <label className="block text-sm font-medium mb-1">Imagen del producto</label>
-          <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+          <button type="button" aria-label="Seleccionar imagen del producto" className="w-full border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => inputFileRef.current?.click()}>
             {previsualizacion ? (
               <div className="flex flex-col items-center gap-2">
@@ -322,8 +302,8 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
             ) : (
               <p className="text-sm text-muted-foreground py-2">Clic para seleccionar imagen (JPG, PNG, WEBP)</p>
             )}
-          </div>
-          <input ref={inputFileRef} type="file" accept="image/*" onChange={handleSeleccionArchivo} className="hidden" />
+          </button>
+          <input ref={inputFileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleSeleccionArchivo} className="hidden" />
         </div>
         {error && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
         <div className="flex gap-3 pt-2">

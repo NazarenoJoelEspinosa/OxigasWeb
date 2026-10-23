@@ -1,30 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'oxi-gas:quote-cart-v2';
-
-/** Valores que el usuario completó para los campos variables de un producto. */
-export type CartItemFields = Record<string, string>;
-
-/** Un ítem en el carrito: código de producto + valores opcionales de campos. */
-export type CartItem = {
-  readonly code: string;
-  readonly fields?: CartItemFields;
-};
-
+import { STORAGE_KEY, parseCart, type CartItem, type CartItemFields } from '@/lib/cart-storage';
+export type { CartItem, CartItemFields } from '@/lib/cart-storage';
 function readStorage(): readonly CartItem[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (value): value is CartItem =>
-        typeof value === 'object' && value !== null && typeof (value as CartItem).code === 'string',
-    );
-  } catch {
-    return [];
-  }
+  try { return typeof window === 'undefined' ? [] : parseCart(window.localStorage.getItem(STORAGE_KEY)); }
+  catch { return []; }
 }
 
 function writeStorage(items: readonly CartItem[]): void {
@@ -60,7 +40,7 @@ export function useQuoteCart(): QuoteCart {
 
   useEffect(() => {
     function handleStorage(event: StorageEvent): void {
-      if (event.key !== STORAGE_KEY) return;
+      if (event.key !== STORAGE_KEY && event.key !== null) return;
       setItems(readStorage());
     }
     window.addEventListener('storage', handleStorage);

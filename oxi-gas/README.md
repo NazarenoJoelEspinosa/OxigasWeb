@@ -1,176 +1,84 @@
-# OXI-GAS — Sitio web
+# OXI-GAS — Tienda y sitio institucional
 
-Sitio institucional + catálogo de **OXI-GAS** (ferretería industrial: gases comprimidos, herramientas, soldadura, seguridad).
+React 19, TypeScript estricto, Vite 7, Tailwind 4 y Supabase. La aplicación vigente está en esta carpeta (`oxi-gas`). No se usa la antigua carpeta `OxigasWeb`.
 
-Stack: **React 19** + **Vite** + **TypeScript** + **Tailwind CSS v4** + **framer-motion** + **wouter** (router liviano).
+## Arranque
 
----
+Requiere Node 24 (o una versión compatible desde 22.18), npm y un proyecto Supabase.
 
-## 1. Cómo correr el proyecto
+1. Ejecutar `npm ci` dentro de `oxi-gas`.
+2. Copiar `.env.example` a `.env.local` y completar URL y clave pública anon/publishable de Supabase. Nunca colocar una clave service_role en el frontend.
+3. Ejecutar `npm run dev`. Dirección predeterminada: http://localhost:3000.
 
-```bash
-cd oxi-gas
-npm install
-npm run dev          # arranca Vite en http://localhost:5000
-npm run build        # build de producción a dist/
-npm run typecheck    # chequeo de tipos sin emitir
+Si falta configuración, aparece un aviso de tienda temporalmente no disponible con acceso a WhatsApp. El sitio no intenta consultar un cliente nulo ni promete datos locales inexistentes.
+
+## Verificaciones
+
+- `npm run typecheck`: TypeScript sin emitir archivos.
+- `npm test`: validaciones y PostgreSQL local con PGlite. No toca la base real.
+- `npm run test:browser`: pruebas de navegación, búsqueda, carrito, formulario y teclado, con respuestas ficticias. Usa Chrome instalado; para Chromium ejecutar `npx playwright install chromium` y definir `PLAYWRIGHT_CHANNEL=chromium`.
+- `npm run build`: verifica tipos y genera `dist`.
+- `npm run check`: tipos, pruebas de lógica/base y build.
+
+Las pruebas de navegador levantan su propio servidor en el puerto 4173. Las variables ficticias se aplican sólo a ese servidor. CI ejecuta las pruebas antes de publicar.
+
+## Supabase: aplicar las correcciones de permisos
+
+Las migraciones están preparadas y probadas localmente, pero **no se aplicaron a tu Supabase**. La actualización del frontend por sí sola no cambia sus políticas.
+
+1. Obtener una copia de seguridad y trabajar primero en una copia de la base. Ejecutar `supabase/preflight.sql` para inspeccionar estructura, políticas, administradores y códigos repetidos. Si una tabla todavía no existe, ejecutar las consultas correspondientes a las tablas existentes por separado.
+2. Comparar la estructura real con `src/lib/database.types.ts`. Es un contrato escrito a partir del código, no un esquema generado desde tu cuenta. Al conectar el proyecto, regenerar tipos con Supabase CLI y revisar diferencias. Las tablas existentes no se alteran automáticamente para añadir columnas faltantes.
+3. Confirmar la membresía de administradores. Como en el código original, cualquier fila en `admin_users` representa un administrador; `role` es descriptivo. Las altas/bajas se hacen desde un operador de la base, nunca desde un cliente web.
+4. Revisar y aplicar `supabase/migrations/202610230001_security_and_transactions.sql` mediante SQL Editor o el flujo de migraciones habitual. Sustituye las políticas de `products`, `offers`, `category_groups` y `admin_users`. Si existen otras aplicaciones que consumen estas tablas, revisar sus necesidades antes de aplicar.
+5. Si hay códigos de productos repetidos, resolverlos antes: el índice único aborta la migración completa en ese caso. Los controles de nombre y precio son `NOT VALID` para no borrar filas antiguas, pero nuevas escrituras deben cumplirlos. Corregir los datos históricos antes de validar esas restricciones.
+6. Probar visitante, usuario común y administrador directamente contra la API. Sólo administradores pueden modificar datos; visitantes sólo leen productos/ofertas visibles. Verificar también revocación de permisos con una sesión ya iniciada.
+7. Verificar el bucket `product-images`: debe existir y servir imágenes públicas si se usa `getPublicUrl`. La migración restringe escrituras a administradores, límite 5 MB y tipos JPG/PNG/WebP. Conserva imágenes existentes y no modifica políticas de otros buckets.
+8. Añadir en la lista de URLs permitidas de Supabase Auth la ruta real de retorno del enlace mágico, por ejemplo `https://TU-DOMINIO/OxigasWeb/admin/dashboard`.
+
+Las funciones RPC de restauración y orden se incluyen en esa migración. Sin aplicarla, la interfaz muestra un error y no ejecuta el antiguo borrado seguido de inserciones independientes.
+
+La prueba PostgreSQL simula `auth.uid()`, roles y tablas Storage en una base nueva. Comprueba RLS, transacciones e idempotencia; no sustituye probar el esquema, triggers y permisos reales de tu proyecto.
+
+Documentación: https://supabase.com/docs/guides/database/postgres/row-level-security
+
+## Publicación y rutas
+
+La base predeterminada es `/`. Definir `BASE_PATH=/OxigasWeb/` en el entorno al generar el sitio para GitHub Pages. El flujo `.github/workflows/deploy.yml` ya lo hace. Para dominio propio alojado en raíz, usar `/` y revisar los metadatos de `index.html` (actualmente apuntan a `https://oxigas.com.ar`).
+
+PowerShell:
+
+```powershell
+$env:BASE_PATH = '/OxigasWeb/'
+npm run build
+node scripts/verify-build.mjs /OxigasWeb/
+npm run serve
 ```
 
-Variables relevantes:
+La página 404 se genera usando la misma base; las rutas profundas se restauran mediante `?__route=...`, sin depender de sessionStorage. Los enlaces del sitio usan el router y los recursos respetan `BASE_URL`.
 
-- `PORT` — puerto del dev server (default 5173, en Replit se usa 5000).
-- `BASE_PATH` — base path para deploy en subcarpeta. Default: `/`.
+Si se desarrolla desde un dominio remoto propio, definir `DEV_ALLOWED_HOSTS` como una lista separada por comas. No se permiten todos los hosts indiscriminadamente.
 
----
+Documentación de base pública: https://vite.dev/guide/build.html#public-base-path
 
-## 2. Estructura de carpetas
+## Organización y reglas útiles
 
-```
-oxi-gas/
-├─ public/                  # Estáticos servidos tal cual (favicon, imágenes públicas)
-├─ src/
-│  ├─ assets/               # (vacío por ahora; usar @assets para attached_assets)
-│  ├─ components/
-│  │  ├─ layout/            # Wrappers de página presentes en TODAS las vistas
-│  │  │  ├─ Header.tsx
-│  │  │  ├─ Footer.tsx
-│  │  │  └─ WhatsAppButton.tsx
-│  │  ├─ sections/          # Bloques de la home, en orden de aparición
-│  │  │  ├─ Hero.tsx
-│  │  │  ├─ StatsBar.tsx
-│  │  │  ├─ CatalogPreview.tsx
-│  │  │  ├─ Services.tsx
-│  │  │  ├─ CompressedGases.tsx
-│  │  │  ├─ FeaturedMachines.tsx
-│  │  │  ├─ SafetyGear.tsx
-│  │  │  ├─ Brands.tsx
-│  │  │  ├─ TechnicalConsulting.tsx
-│  │  │  └─ Hours.tsx
-│  │  ├─ features/          # Features con lógica/estado propio
-│  │  │  ├─ QuoteForm.tsx           # Formulario de cotización
-│  │  │  └─ QuoteCart.tsx           # Carrito persistente de cotización
-│  │  └─ ui/                # Primitivos shadcn/radix usados (solo los necesarios)
-│  ├─ config/
-│  │  └─ constants.ts       # WHATSAPP_URL, CONTACT, HOURS, etc.
-│  ├─ data/
-│  │  └─ products.ts        # Catálogo de productos (ver sección 4)
-│  ├─ hooks/
-│  │  ├─ useTheme.ts        # Toggle dark/light persistido en localStorage
-│  │  └─ useQuoteCart.ts    # Carrito de cotización con sync entre pestañas
-│  ├─ lib/
-│  │  └─ utils.ts           # cn(), helpers genéricos
-│  ├─ pages/
-│  │  ├─ Home.tsx           # Compone todas las sections
-│  │  ├─ Productos.tsx      # Catálogo filtrable
-│  │  └─ NotFound.tsx
-│  ├─ App.tsx               # Router (wouter)
-│  ├─ main.tsx              # Entry point
-│  ├─ index.css             # Tailwind v4 + tokens CSS (dark/light)
-│  └─ vite-env.d.ts
-├─ index.html
-├─ vite.config.ts
-├─ tsconfig.json
-├─ package.json
-└─ README.md                # ← este archivo
-```
+- `src/lib/database.types.ts`: contrato de tablas y funciones RPC.
+- `src/lib/models.ts`: modelos normalizados y validación de datos externos.
+- `src/lib/catalog.ts`, `pagination.ts`: acceso a productos y lectura por páginas, comprobando errores y sin depender del límite por defecto del servidor.
+- `src/lib/cart-storage.ts`: validación completa y eliminación de duplicados del almacenamiento persistido.
+- `src/lib/format.ts`: cantidades válidas y formato monetario compartido.
+- `src/components/features/ProductCard.tsx`, `ProductModal.tsx`: presentación del producto separada de la página de filtros. El modal controla foco, Escape y navegación por teclado.
+- `src/components/Admin`: edición protegida. El contenido y sus consultas se montan después de verificar membresía.
+- `src/hooks`: estado de carrito, ofertas y categorías con cancelación de cargas cuando corresponde.
 
-**Convenciones de naming:**
-- Componentes: `PascalCase.tsx`.
-- Hooks: `useNombre.ts`.
-- Tipos exportados: `PascalCase`.
-- Constantes: `UPPER_SNAKE_CASE`.
+Las claves de campos personalizados son estables; no deben recalcularse desde sus etiquetas. Los campos anteriores conservan sus claves. Si ya había claves duplicadas, corregirlas con un plan de compatibilidad de carritos existentes.
 
----
+La tienda mantiene `/productos` para conservar enlaces anteriores. Las categorías son filtros internos, no un menú desplegable del encabezado.
 
-## 3. Sistema de diseño
+## Límites y mantenimiento
 
-### Tokens de color (en `src/index.css`)
+El catálogo necesita el conjunto completo para calcular filtros y contadores locales. Se descarga por páginas para no truncarlo por el límite de Supabase; para catálogos muy grandes conviene llevar búsqueda, filtros, conteos y paginación a consultas de servidor. El carrito sólo consulta los códigos seleccionados, en lotes.
 
-Toda la UI consume tokens HSL. **Nunca usar hex hardcodeado**, salvo colores de marca externa (WhatsApp `#25d366`, Instagram `#e1306c`).
+Subir imagen y guardar producto son operaciones de servicios distintos: si falla guardar, se intenta eliminar la imagen recién subida. No hay transacción distribuida entre Storage y Postgres; si falla también la limpieza, queda registrado para conciliación. Quitar una imagen de un producto no borra automáticamente el archivo remoto para evitar eliminar recursos compartidos.
 
-| Token             | Uso                                  |
-| ----------------- | ------------------------------------ |
-| `--surface-0`     | Fondo principal (body, hero, header) |
-| `--surface-1`     | Cards y bloques elevados             |
-| `--surface-2`     | Bandas alternas / fondos secundarios |
-| `--surface-3`     | Bordes sutiles                       |
-| `--text-main`     | Texto principal                      |
-| `--text-soft`     | Texto secundario / labels            |
-| `--primary`       | Color de marca (azul en dark, naranja en light) |
-
-Cada token se redefine en `html.light` para el modo claro.
-
-Uso típico en JSX:
-```tsx
-<div className="bg-[hsl(var(--surface-1))] text-[hsl(var(--text-main))] border border-[hsl(var(--surface-3))]" />
-```
-
-### Tipografía
-- `Inter` para texto general.
-- `Barlow` para títulos (h1–h6).
-- Labels overline: `uppercase tracking-[0.2em]–[0.25em] text-xs font-semibold text-primary`.
-
-### Modo claro/oscuro
-- Toggle vía `useTheme()` (botón en Header).
-- Default: **dark** (primera visita) — luego se persiste en `localStorage` (`oxi-gas-theme`).
-- Para activar light en CSS se aplica la clase `.light` al `<html>`.
-
----
-
-## 4. Cargar productos al catálogo
-
-El archivo `src/data/products.ts` está intencionalmente **vacío** para ser poblado con datos reales.
-
-Ejemplo:
-
-```ts
-export const PRODUCT_CATEGORIES: readonly ProductCategoryOption[] = [
-  { value: 'soldadura', label: 'Soldadura' },
-  { value: 'neumatica', label: 'Neumática' },
-];
-
-export const PRODUCT_BRANDS: readonly ProductBrand[] = [
-  'Aligas',
-  'Wembley',
-];
-
-export const PRODUCTS: readonly Product[] = [
-  {
-    id: 'al0034',
-    code: 'AL0034',
-    name: 'Martillo Aligas Cobre P/Soldador',
-    brand: 'Aligas',
-    category: 'soldadura',
-    highlight: 'Más vendido', // opcional
-  },
-];
-```
-
-**Reglas:**
-- `category` debe coincidir con un `value` de `PRODUCT_CATEGORIES`.
-- `brand` debe coincidir con un string de `PRODUCT_BRANDS`.
-- `id` y `code` deben ser únicos.
-
-Mientras los arrays estén vacíos:
-- `/productos` muestra el empty state.
-- El bloque "CatalogPreview" del home muestra mensajes genéricos (no rompe).
-
----
-
-## 5. Decisiones técnicas
-
-- **`tsconfig.strict: false`** (heredado, no se forzó migración).
-- **shadcn/ui minimo**: solo se conservan los primitivos que se usan (badge, button, card, dialog, input, label, select, separator, sheet, skeleton, textarea, toggle, tooltip).
-- **No hay react-query, no hay Toaster** (se removieron por no usarse).
-- **Cotización persistente**: `useQuoteCart` guarda los códigos seleccionados en `localStorage` y sincroniza entre pestañas con `storage` event.
-- **Animaciones**: usar `useReducedMotion()` cuando se animen loops infinitos (respeto a `prefers-reduced-motion`).
-
----
-
-## 6. Comandos útiles
-
-```bash
-npm run typecheck            # tsc --noEmit
-npm run build                # build de producción
-npx vite preview             # preview del build
-```
+No distribuir `.env`, `node_modules`, cachés ni `dist` como fuente. Instalar dependencias con el lockfile en cada plataforma. Las capturas de prueba usan productos ficticios y no representan el inventario real.

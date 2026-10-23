@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { motion } from 'framer-motion';
 import { ArrowRight, Boxes, Layers, ShieldCheck, type LucideIcon } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { loadProducts } from '@/lib/catalog';
 
 type Stats = {
   total: number;
@@ -40,16 +40,12 @@ export function CatalogPreview() {
   const [stats, setStats] = useState<Stats>({ total: 0, categories: 0, brands: 0 });
 
   useEffect(() => {
-    supabase
-      .from('products')
-      .select('category, brand')
-      .eq('visible', true)
-      .then(({ data }) => {
-        if (!data) return;
-        const categories = new Set(data.map((p) => p.category).filter(Boolean)).size;
-        const brands = new Set(data.map((p) => p.brand).filter(Boolean)).size;
-        setStats({ total: data.length, categories, brands });
-      });
+    const controller = new AbortController();
+    loadProducts(controller.signal).then(data => {
+      if (controller.signal.aborted) return;
+      setStats({ total: data.length, categories: new Set(data.map(p => p.category).filter(Boolean)).size, brands: new Set(data.map(p => p.brand).filter(Boolean)).size });
+    }).catch(() => { /* Los textos genéricos siguen siendo válidos cuando las estadísticas no están disponibles. */ });
+    return () => controller.abort();
   }, []);
 
   const highlights = buildHighlights(stats);
@@ -85,7 +81,7 @@ export function CatalogPreview() {
                 href="/productos"
                 className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-base py-3.5 px-7 rounded-xl shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02]"
               >
-                Ver catálogo completo
+                Ir a la tienda
                 <ArrowRight className="w-5 h-5" />
               </Link>
               <Link

@@ -1,17 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn(
-    'Supabase env vars not set (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY). ' +
-    'The app will run with local fallback data.'
-  );
-}
-
-export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, detectSessionInUrl: true },
-    })
-  : null as any;
+import type { Database } from './database.types';
+const url = import.meta.env.VITE_SUPABASE_URL?.trim();
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+export const supabaseConfigured = Boolean(url && key && /^https?:\/\/[^\s/]+\/?$/.test(url));
+// App no monta las páginas sin configuración; no hay consultas al dominio alternativo.
+export const supabase = createClient<Database>(
+  supabaseConfigured ? url! : 'https://unconfigured.invalid',
+  supabaseConfigured ? key! : 'unconfigured',
+  {
+    auth: { persistSession: supabaseConfigured, detectSessionInUrl: supabaseConfigured, autoRefreshToken: supabaseConfigured },
+    global: { fetch: (input, init) => {
+      const timeout = AbortSignal.timeout(15000);
+      return fetch(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout });
+    } },
+  },
+);

@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
@@ -15,6 +17,12 @@ import { Hours } from '@/components/sections/Hours';
 import { QuoteForm } from '@/components/features/QuoteForm';
 
 export default function Home() {
+  const [location] = useLocation();
+  useEffect(() => {
+    const scroll = () => { const id = decodeURIComponent(window.location.hash.slice(1)); if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); };
+    scroll(); window.addEventListener('hashchange', scroll);
+    return () => window.removeEventListener('hashchange', scroll);
+  }, [location]);
   return (
     <main className="min-h-screen bg-background relative">
       <Header />

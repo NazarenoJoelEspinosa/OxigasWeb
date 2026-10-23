@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
+import { loadProducts } from '@/lib/catalog';
 import AuthGuard from '@/components/Admin/AuthGuard';
 import ProductForm, { type Producto } from '@/components/Admin/ProductForm';
 import CategoryGroupsAdmin from '@/components/Admin/CategoryGroupsAdmin';
@@ -8,7 +9,7 @@ import OffersAdmin from '@/components/Admin/OffersAdmin';
 
 type Tab = 'productos' | 'categorias' | 'ofertas';
 
-export default function AdminDashboard() {
+function DashboardContent() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<Tab>('productos');
 
@@ -27,10 +28,8 @@ export default function AdminDashboard() {
 
   const cargarProductos = async () => {
     setCargando(true);
-    const { data, error } = await supabase
-      .from('products').select('*').order('created_at', { ascending: false });
-    if (error) mostrarNotificacion('error', 'Error al cargar productos: ' + error.message);
-    else setProductos(data as Producto[]);
+    try { setProductos(await loadProducts(undefined, false)); }
+    catch { mostrarNotificacion('error', 'No pudimos cargar los productos. Intentá de nuevo.'); }
     setCargando(false);
   };
 
@@ -38,7 +37,7 @@ export default function AdminDashboard() {
 
   const handleEliminar = async (id: string, nombre: string) => {
     if (!window.confirm(`¿Estás seguro que querés eliminar "${nombre}"?`)) return;
-    const { error } = await supabase.from('products').delete().eq('id', id);
+    const { error } = await supabase.from('products').delete().eq('id', id).select('id').single();
     if (error) mostrarNotificacion('error', 'Error al eliminar: ' + error.message);
     else { mostrarNotificacion('exito', `"${nombre}" eliminado correctamente.`); cargarProductos(); }
   };
@@ -71,7 +70,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <AuthGuard>
+    <>
       <div className="min-h-screen bg-muted">
         {/* Header */}
         <header className="bg-background border-b border-border sticky top-0 z-10">
@@ -81,9 +80,9 @@ export default function AdminDashboard() {
               <p className="text-xs text-muted-foreground">OxigasWeb</p>
             </div>
             <div className="flex items-center gap-4">
-              <a href="/" className="text-sm text-muted-foreground hover:text-foreground hidden sm:block">
+              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground hidden sm:block">
                 ← Ver sitio
-              </a>
+              </Link>
               <button
                 onClick={async () => { await supabase.auth.signOut(); setLocation('/admin/login'); }}
                 className="text-sm text-destructive hover:underline"
@@ -234,6 +233,7 @@ export default function AdminDashboard() {
           {tab === 'ofertas' && <OffersAdmin />}
         </main>
       </div>
-    </AuthGuard>
+    </>
   );
 }
+export default function AdminDashboard() { return <AuthGuard><DashboardContent /></AuthGuard>; }

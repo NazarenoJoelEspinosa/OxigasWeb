@@ -12,13 +12,15 @@ export default function AdminLogin() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cargando) return;
     setCargando(true);
-    setError(null);
+    setError(null); setInfoMensaje(null);
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (authError) { setError('Credenciales incorrectas. Verificá tu correo y contraseña.'); return; }
       const { data: sessionData } = await supabase.auth.getSession();
       const usuario = sessionData?.session?.user;
+      if (!usuario) { setError('No se pudo iniciar la sesión. Intentá de nuevo.'); return; }
       if (usuario) {
         const { data: adminData, error: adminError } = await supabase
           .from('admin_users').select('role').eq('user_id', usuario.id).single();
@@ -37,13 +39,15 @@ export default function AdminLogin() {
   };
 
   const handleEnlaceMagico = async () => {
-    if (!email) { setError('Ingresá tu correo electrónico primero.'); return; }
-    setCargando(true);
+    if (cargando) return;
+    if (!email.trim()) { setError('Ingresá tu correo electrónico primero.'); return; }
+    setCargando(true); setError(null); setInfoMensaje(null);
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+      const { error: otpError } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false, emailRedirectTo: new URL(import.meta.env.BASE_URL + 'admin/dashboard', window.location.origin).href } });
       if (otpError) setError('Error al enviar el enlace: ' + otpError.message);
       else setInfoMensaje('Se envió un enlace mágico a tu correo. Revisá tu bandeja de entrada.');
-    } finally { setCargando(false); }
+    } catch { setError('No se pudo enviar el enlace. Intentá de nuevo.'); }
+    finally { setCargando(false); }
   };
 
   return (

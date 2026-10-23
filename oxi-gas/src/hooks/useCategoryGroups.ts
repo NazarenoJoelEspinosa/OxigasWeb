@@ -1,27 +1,11 @@
-/**
- * useCategoryGroups
- *
- * Lee los grupos de categorías desde la tabla `category_groups` de Supabase.
- * Si la tabla no existe todavía, devuelve los grupos hardcodeados como fallback.
- *
- * Estructura de la tabla (SQL para crear):
- * ──────────────────────────────────────────
- * create table category_groups (
- *   id        uuid primary key default gen_random_uuid(),
- *   label     text not null,
- *   icon      text not null default '📦',
- *   slugs     text[] not null default '{}',
- *   sort_order int not null default 0
- * );
- * -- Habilitar RLS y permitir lectura pública:
- * alter table category_groups enable row level security;
- * create policy "public read" on category_groups for select using (true);
- * create policy "auth write"  on category_groups for all using (auth.role() = 'authenticated');
- * ──────────────────────────────────────────
- */
+/** Grupos públicos con alternativa local si la tabla aún no está configurada. */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { isMissingTable } from '@/lib/models';
+import { readAllPages } from '@/lib/pagination';
+import { z } from 'zod';
+const groupSchema = z.object({ id: z.string(), label: z.string(), icon: z.string(), slugs: z.array(z.string()), sort_order: z.number() });
 
 export type CategoryGroup = {
   id?: string;
@@ -135,17 +119,16 @@ export function useCategoryGroups() {
   const [status, setStatus] = useState<Status>('loading');
   const [usingFallback, setUsingFallback] = useState(false);
 
+  const current = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    current.current?.abort();
+    const controller = new AbortController(); current.current = controller;
     setStatus('loading');
     try {
-      const { data, error } = await supabase
-        .from('category_groups')
-        .select('*')
-        .order('sort_order', { ascending: true });
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
+      const rows = await readAllPages((from, to) => supabase.from('category_groups').select('*').order('sort_order').order('id').range(from, to).abortSignal(controller.signal));
+      if (controller.signal.aborted) return;
+      const data = rows.map(row => groupSchema.parse(row));
+      if (data.length > 0) {
         // Filtrar "Ofertas" por si existe en la DB — tiene su propia sección
         const sinOfertas = (data as CategoryGroup[]).filter(
           (g) => g.label.toLowerCase() !== 'ofertas'
@@ -157,14 +140,15 @@ export function useCategoryGroups() {
         setUsingFallback(true);
       }
       setStatus('ready');
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted) return;
       setGroups(DEFAULT_GROUPS);
       setUsingFallback(true);
-      setStatus('ready');
+      setStatus(isMissingTable(error) ? 'ready' : 'error');
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); return () => current.current?.abort(); }, [load]);
 
   return { groups, status, usingFallback, reload: load };
 }

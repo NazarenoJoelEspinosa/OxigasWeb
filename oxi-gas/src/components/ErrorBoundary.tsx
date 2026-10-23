@@ -26,7 +26,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   handleReset = () => {
     this.setState({ hasError: false, error: null });
-    window.location.href = '/';
+    window.location.href = import.meta.env.BASE_URL;
   };
 
   render() {
@@ -66,7 +66,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </a>
             </div>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <div className="mt-8 p-4 rounded-lg bg-red-500/10 border border-red-500/30">
                 <p className="text-xs font-mono text-red-600 text-left overflow-auto max-h-24">
                   {this.state.error.toString()}

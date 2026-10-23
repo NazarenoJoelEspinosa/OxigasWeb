@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { loadProducts } from '@/lib/catalog';
 
 export type OfertaProducto = {
   id: string;
@@ -37,16 +37,8 @@ export function useOfertasProducts() {
   const load = useCallback(async () => {
     setStatus('loading');
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, description, brand, price, images')
-        // ilike = case-insensitive: acepta "Ofertas", "ofertas", "OFERTAS", etc.
-        .ilike('category', 'ofertas')
-        .eq('visible', true)
-        .order('name', { ascending: true });
-
-      if (error) throw error;
-      setProducts((data ?? []) as OfertaProducto[]);
+      const data = await loadProducts();
+      setProducts(data.filter(p => p.category?.trim().toLowerCase() === 'ofertas'));
       setStatus('ready');
     } catch {
       setProducts([]);

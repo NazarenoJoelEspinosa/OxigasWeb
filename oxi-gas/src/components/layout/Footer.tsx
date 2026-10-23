@@ -1,14 +1,15 @@
+import { Link } from 'wouter';
 import { Phone, Clock, Instagram, MessageCircle } from 'lucide-react';
 import { WHATSAPP_URL, CONTACT, HOURS } from '@/config/constants';
-const oxiGasLogo = './images/logo_oxigas.svg';
+const oxiGasLogo = `${import.meta.env.BASE_URL}images/logo_oxigas.svg`;
 
 const quickLinks = [
-  { label: 'Inicio', href: '#inicio' },
-  { label: 'Productos', href: '#productos' },
+  { label: 'Inicio', href: '/#inicio' },
+  { label: 'Tienda', href: '/productos' },
   { label: 'Ofertas', href: '/ofertas' },
-  { label: 'Marcas', href: '#marcas' },
-  { label: 'Horarios', href: '#horarios' },
-  { label: 'Contacto', href: '#contacto' },
+  { label: 'Marcas', href: '/#marcas' },
+  { label: 'Horarios', href: '/#horarios' },
+  { label: 'Contacto', href: '/#contacto' },
 ];
 
 export function Footer() {
@@ -18,13 +19,13 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
 
           <div className="col-span-1">
-            <a href="#inicio" className="inline-block mb-6" aria-label="Volver al inicio">
+            <Link href="/" className="inline-block mb-6" aria-label="Volver al inicio">
               <img
                 src={oxiGasLogo}
                 alt="OXI-GAS Ferretería Industrial"
                 className="h-14 w-auto"
               />
-            </a>
+            </Link>
             <p className="text-[hsl(var(--text-soft))] text-lg mb-6 leading-relaxed">
               Tu ferretería industrial de confianza. Proveemos soluciones integrales en gases comprimidos y herramientas de primera línea.
             </p>
@@ -44,12 +45,12 @@ export function Footer() {
             <ul className="space-y-3">
               {quickLinks.map((link) => (
                 <li key={link.href}>
-                  <a
+                  <Link
                     href={link.href}
                     className="text-[hsl(var(--text-soft))] hover:text-primary transition-colors"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

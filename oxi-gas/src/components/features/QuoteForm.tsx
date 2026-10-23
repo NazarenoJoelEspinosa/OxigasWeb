@@ -78,7 +78,10 @@ export function QuoteForm() {
     setTouched(allTouched);
     const validationErrors = validateForm(fields);
     setErrors(validationErrors);
-    if (Object.keys(validationErrors).length > 0) return;
+    if (Object.keys(validationErrors).length > 0) {
+      document.getElementById(Object.keys(validationErrors)[0])?.focus();
+      return;
+    }
 
     const lines = [
       'Hola OXI-GAS, me comunico desde la web.',
@@ -143,10 +146,10 @@ export function QuoteForm() {
                     className={fieldClass('nombre')}
                     placeholder="Juan Pérez"
                     autoComplete="name"
-                    aria-label="Nombre completo"
+                    aria-label="Nombre completo" required aria-invalid={Boolean(touched.nombre && errors.nombre)} aria-describedby={touched.nombre && errors.nombre ? 'nombre-error' : undefined}
                   />
                   {touched.nombre && errors.nombre && (
-                    <p className="text-xs text-red-400 mt-1">{errors.nombre}</p>
+                    <p id="nombre-error" role="alert" className="text-xs text-red-400 mt-1">{errors.nombre}</p>
                   )}
                 </div>
 
@@ -182,10 +185,10 @@ export function QuoteForm() {
                     placeholder="Ej: 1123456789"
                     autoComplete="tel"
                     inputMode="numeric"
-                    aria-label="Teléfono"
+                    aria-label="Teléfono" required aria-invalid={Boolean(touched.telefono && errors.telefono)} aria-describedby={touched.telefono && errors.telefono ? 'telefono-error' : undefined}
                   />
                   {touched.telefono && errors.telefono && (
-                    <p className="text-xs text-red-400 mt-1">{errors.telefono}</p>
+                    <p id="telefono-error" role="alert" className="text-xs text-red-400 mt-1">{errors.telefono}</p>
                   )}
                 </div>
 
@@ -218,10 +221,10 @@ export function QuoteForm() {
                   rows={5}
                   className={`${fieldClass('mensaje')} resize-none`}
                   placeholder="Contanos tu consulta, qué producto buscás, si necesitás un presupuesto, etc."
-                  aria-label="Consulta o mensaje"
+                  aria-label="Consulta o mensaje" required aria-invalid={Boolean(touched.mensaje && errors.mensaje)} aria-describedby={touched.mensaje && errors.mensaje ? 'mensaje-error' : undefined}
                 />
                 {touched.mensaje && errors.mensaje && (
-                  <p className="text-xs text-red-400 mt-1">{errors.mensaje}</p>
+                  <p id="mensaje-error" role="alert" className="text-xs text-red-400 mt-1">{errors.mensaje}</p>
                 )}
               </div>
 

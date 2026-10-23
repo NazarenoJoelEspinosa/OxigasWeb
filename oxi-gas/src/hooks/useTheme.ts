@@ -8,7 +8,7 @@ export function useTheme() {
     document.documentElement.classList.remove('dark');
     document.documentElement.classList.add('light');
     // Limpiar preferencia guardada para que no haya conflictos
-    window.localStorage.removeItem('oxi-gas-theme-v2');
+    try { window.localStorage.removeItem('oxi-gas-theme-v2'); } catch { /* almacenamiento deshabilitado */ }
   }, []);
 
   return {

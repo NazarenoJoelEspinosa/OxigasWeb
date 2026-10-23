@@ -9,15 +9,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { isMissingTable, errorMessage } from '@/lib/models';
+import { readAllPages } from '@/lib/pagination';
 import { DEFAULT_GROUPS, type CategoryGroup } from '@/hooks/useCategoryGroups';
 import { Plus, Pencil, Trash2, Save, X, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-
-async function ensureTable(): Promise<boolean> {
-  const { error } = await supabase.from('category_groups').select('id').limit(1);
-  return !error;
-}
 
 // ─── Form modal ───────────────────────────────────────────────────────────────
 
@@ -55,14 +52,10 @@ function GroupForm({ initial, totalGroups, onSave, onCancel }: GroupFormProps) {
     if (!label.trim()) { setErr('El nombre del grupo es obligatorio.'); return; }
     setSaving(true);
     setErr('');
-    await onSave({
-      ...initial,
-      label: label.trim(),
-      icon,
-      slugs,
-      sort_order: initial?.sort_order ?? totalGroups,
-    });
-    setSaving(false);
+    try {
+      await onSave({ ...initial, label: label.trim(), icon, slugs, sort_order: initial?.sort_order ?? totalGroups });
+    } catch (error) { setErr(errorMessage(error)); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -118,7 +111,7 @@ function GroupForm({ initial, totalGroups, onSave, onCancel }: GroupFormProps) {
               Categorías de Supabase que pertenecen a este grupo
             </label>
             <p className="text-xs text-muted-foreground mb-2">
-              Escribí el valor exacto del campo <code className="bg-muted px-1 rounded text-[10px]">category</code> tal como aparece en tu base de datos. Es case-sensitive.
+              Escribí el valor exacto del campo <code className="bg-muted px-1 rounded text-[10px]">category</code> tal como aparece en tu base de datos. Se ignoran mayúsculas y acentos.
             </p>
             <div className="flex gap-2">
               <input
@@ -182,6 +175,8 @@ function GroupForm({ initial, totalGroups, onSave, onCancel }: GroupFormProps) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function CategoryGroupsAdmin() {
+  const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [groups, setGroups] = useState<CategoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [tableExists, setTableExists] = useState(false);
@@ -195,15 +190,13 @@ export default function CategoryGroupsAdmin() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const ok = await ensureTable();
-    setTableExists(ok);
-    if (ok) {
-      const { data } = await supabase
-        .from('category_groups').select('*').order('sort_order', { ascending: true });
-      setGroups((data ?? []) as CategoryGroup[]);
-    } else {
-      // Mostrar defaults de solo lectura
-      setGroups(DEFAULT_GROUPS.map((g, i) => ({ ...g, id: `default-${i}` })));
+    setLoadError(false);
+    try {
+      const data = await readAllPages((from, to) => supabase.from('category_groups').select('*').order('sort_order').order('id').range(from, to));
+      setTableExists(true); setGroups(data);
+    } catch (error) {
+      if (isMissingTable(error)) { setTableExists(false); setGroups(DEFAULT_GROUPS.map((g, i) => ({ ...g, id: 'default-' + i }))); }
+      else { setLoadError(true); notify('err', 'No se pudieron cargar los grupos. Comprobá tu conexión y permisos.'); }
     }
     setLoading(false);
   }, []);
@@ -213,11 +206,11 @@ export default function CategoryGroupsAdmin() {
   const handleSave = async (g: CategoryGroup) => {
     if (!tableExists) { notify('err', 'La tabla no existe todavía. Creala primero (ver instrucciones abajo).'); return; }
     if (g.id) {
-      const { error } = await supabase.from('category_groups').update({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: g.sort_order }).eq('id', g.id);
-      if (error) { notify('err', error.message); return; }
+      const { error } = await supabase.from('category_groups').update({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: g.sort_order }).eq('id', g.id).select('id').single();
+      if (error) throw new Error(error.message);
     } else {
       const { error } = await supabase.from('category_groups').insert({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: g.sort_order });
-      if (error) { notify('err', error.message); return; }
+      if (error) throw new Error(error.message);
     }
     notify('ok', `Grupo "${g.label}" guardado.`);
     setEditing(null);
@@ -227,7 +220,7 @@ export default function CategoryGroupsAdmin() {
   const handleDelete = async (g: CategoryGroup) => {
     if (!tableExists) return;
     if (!window.confirm(`¿Eliminar el grupo "${g.label}"? Los productos no se borran, solo deja de aparecer el grupo.`)) return;
-    const { error } = await supabase.from('category_groups').delete().eq('id', g.id!);
+    const { error } = await supabase.from('category_groups').delete().eq('id', g.id!).select('id').single();
     if (error) { notify('err', error.message); return; }
     notify('ok', `Grupo "${g.label}" eliminado.`);
     load();
@@ -239,36 +232,40 @@ export default function CategoryGroupsAdmin() {
     const swap = idx + dir;
     if (swap < 0 || swap >= next.length) return;
     [next[idx], next[swap]] = [next[swap], next[idx]];
-    const updates = next.map((g, i) => supabase.from('category_groups').update({ sort_order: i }).eq('id', g.id!));
-    await Promise.all(updates);
-    load();
+    if (busy) return; setBusy(true);
+    try {
+      const { error } = await supabase.rpc('reorder_category_groups', { ids: next.map(g => g.id!) });
+      if (error) throw error;
+      await load();
+    } catch { notify('err', 'No se pudo ordenar. Revisá las migraciones y tus permisos.'); }
+    finally { setBusy(false); }
   };
 
   const seedDefaults = async () => {
     if (!tableExists) { notify('err', 'La tabla no existe todavía.'); return; }
-    for (const [i, g] of DEFAULT_GROUPS.entries()) {
-      await supabase.from('category_groups').insert({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: i });
-    }
-    notify('ok', 'Grupos por defecto insertados.');
-    load();
+    if (busy) return; setBusy(true);
+    try {
+      const { error } = await supabase.from('category_groups').insert(DEFAULT_GROUPS.map((g, i) => ({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: i })));
+      if (error) throw error;
+      notify('ok', 'Grupos por defecto insertados.'); await load();
+    } catch { notify('err', 'No se pudieron insertar los grupos. No se guardaron cambios parciales.'); }
+    finally { setBusy(false); }
   };
 
   const resetToDefaults = async () => {
     if (!tableExists) { notify('err', 'La tabla no existe todavía.'); return; }
     if (!window.confirm('¿Restaurar todos los grupos a los valores predeterminados? Se borrarán los grupos actuales.')) return;
-    const ids = groups.map((g) => g.id).filter(Boolean) as string[];
-    if (ids.length > 0) {
-      await supabase.from('category_groups').delete().in('id', ids);
-    }
-    for (const [i, g] of DEFAULT_GROUPS.entries()) {
-      await supabase.from('category_groups').insert({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: i });
-    }
-    notify('ok', 'Grupos restaurados a los valores predeterminados.');
-    load();
+    if (busy) return; setBusy(true);
+    try {
+      const { error } = await supabase.rpc('replace_category_groups', { groups: DEFAULT_GROUPS.map((g, i) => ({ label: g.label, icon: g.icon, slugs: g.slugs, sort_order: i })) });
+      if (error) throw error;
+      notify('ok', 'Grupos restaurados.'); await load();
+    } catch { notify('err', 'No se pudo restaurar. La operación no realizó cambios parciales. Revisá las migraciones.'); }
+    finally { setBusy(false); }
   };
 
   return (
-    <div className="space-y-6">
+    <fieldset disabled={busy} className="space-y-6 min-w-0">
       {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition-all ${toast.type === 'ok' ? 'bg-green-600 text-white' : 'bg-destructive text-white'}`}>
@@ -314,29 +311,17 @@ export default function CategoryGroupsAdmin() {
       </div>
 
       {/* Alerta: tabla no existe */}
-      {!tableExists && !loading && (
+      {!tableExists && !loading && !loadError && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-2">
           <p className="font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> La tabla <code>category_groups</code> no existe en Supabase todavía.</p>
-          <p>Creala con este SQL en el Editor de Supabase y luego recargá:</p>
-          <pre className="bg-amber-100 rounded-lg p-3 text-xs overflow-x-auto leading-relaxed whitespace-pre-wrap">{`create table category_groups (
-  id        uuid primary key default gen_random_uuid(),
-  label     text not null,
-  icon      text not null default '📦',
-  slugs     text[] not null default '{}',
-  sort_order int not null default 0
-);
-alter table category_groups enable row level security;
-create policy "public read"
-  on category_groups for select using (true);
-create policy "auth write"
-  on category_groups for all
-  using (auth.role() = 'authenticated');`}</pre>
+<p>Aplicá las migraciones incluidas en supabase/migrations según el README. Luego recargá esta sección.</p>
           <button onClick={load} className="mt-1 text-xs font-semibold text-amber-700 hover:underline flex items-center gap-1">
             <RefreshCw className="w-3 h-3" /> Reintentar
           </button>
         </div>
       )}
 
+      {loadError && <p role="alert">No se pudo cargar esta sección. <button type="button" onClick={() => void load()} className="text-primary underline">Reintentar</button></p>}
       {/* Lista de grupos */}
       {loading ? (
         <div className="flex items-center gap-3 py-12 justify-center">
@@ -418,6 +403,6 @@ create policy "auth write"
           onCancel={() => setEditing(null)}
         />
       )}
-    </div>
+    </fieldset>
   );
 }

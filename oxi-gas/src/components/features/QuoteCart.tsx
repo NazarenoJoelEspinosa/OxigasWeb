@@ -10,18 +10,10 @@ import {
 } from '@/components/ui/sheet';
 import { WHATSAPP_URL } from '@/config/constants';
 import { supabase } from '@/lib/supabaseClient';
+import { productSchema, type Product } from '@/lib/models';
+import { readAllPages } from '@/lib/pagination';
 import type { CartItem, QuoteCart as QuoteCartType } from '@/hooks/useQuoteCart';
 
-type CustomField = { key: string; label: string; placeholder?: string };
-type Product = {
-  id: string;
-  code: string;
-  name: string;
-  brand?: string;
-  category?: string;
-  images?: string[];
-  custom_fields?: CustomField[];
-};
 type EnrichedItem = { product: Product; cartItem: CartItem };
 
 type QuoteCartProps = {
@@ -49,16 +41,29 @@ function buildWhatsAppHref(enrichedItems: readonly EnrichedItem[]): string {
 }
 
 export function QuoteCart({ cart, open, onOpenChange }: QuoteCartProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [request, setRequest] = useState(0);
+  const codesKey = JSON.stringify([...cart.codes].sort());
   const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    supabase
-      .from('products')
-      .select('id, code, name, brand, category, images, custom_fields')
-      .then(({ data }) => {
-        if (data) setAllProducts(data as Product[]);
-      });
-  }, []);
+    if (!open) return;
+    const controller = new AbortController();
+    const codes: string[] = JSON.parse(codesKey);
+    setLoading(true); setError(false);
+    const load = async () => {
+      const products: Product[] = [];
+      for (let i = 0; i < codes.length; i += 100) {
+        const rows = await readAllPages((from, to) => supabase.from('products').select('*').eq('visible', true).in('code', codes.slice(i, i + 100)).order('id').range(from, to).abortSignal(controller.signal));
+        products.push(...rows.map(row => productSchema.parse(row)));
+      }
+      if (!controller.signal.aborted) setAllProducts(products);
+    };
+    void load().catch(() => { if (!controller.signal.aborted) setError(true); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [open, codesKey, request]);
 
   const enrichedItems = useMemo<readonly EnrichedItem[]>(() => {
     return cart.items
@@ -69,6 +74,7 @@ export function QuoteCart({ cart, open, onOpenChange }: QuoteCartProps) {
       .filter((item): item is EnrichedItem => item !== null);
   }, [cart.items, allProducts]);
 
+  const unavailable = cart.items.filter(item => !allProducts.some(p => p.code === item.code));
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -86,7 +92,7 @@ export function QuoteCart({ cart, open, onOpenChange }: QuoteCartProps) {
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto -mx-6 px-6 py-4">
-          {enrichedItems.length === 0 ? (
+          {loading ? <p role="status">Cargando tu cotización...</p> : error ? <div role="alert"><p>No pudimos cargar los productos.</p><button onClick={() => setRequest(n => n + 1)} className="text-primary underline">Reintentar</button></div> : cart.count === 0 ? (
             <EmptyCart />
           ) : (
             <ul className="flex flex-col gap-3">
@@ -100,9 +106,10 @@ export function QuoteCart({ cart, open, onOpenChange }: QuoteCartProps) {
               ))}
             </ul>
           )}
+          {!loading && !error && unavailable.map(item => <div key={item.code} className="mt-4 rounded-lg border border-border p-3"><p>El producto {item.code} ya no está disponible.</p><button className="text-primary underline" onClick={() => cart.remove(item.code)}>Quitar de la cotización</button></div>)}
         </div>
 
-        {enrichedItems.length > 0 && (
+        {!loading && !error && enrichedItems.length > 0 && (
           <SheetFooter className="flex-col gap-3 sm:flex-col sm:space-x-0 border-t border-[hsl(var(--surface-3))] pt-4">
             <a
               href={buildWhatsAppHref(enrichedItems)}

@@ -111,3 +111,6 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* El botón accesible de limpiar reemplaza el control nativo del buscador. */
+.shop-search::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }

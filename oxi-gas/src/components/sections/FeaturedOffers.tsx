@@ -1,31 +1,25 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { MessageCircle, Zap, Tag, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { formatPrecio } from '@/lib/format';
 import { whatsappUrl } from '@/config/constants';
 import { useOffers } from '@/hooks/useOffers';
 
-function formatPrecio(precio: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(precio);
-}
 
 export function FeaturedOffers() {
+  const reducedMotion = useReducedMotion();
   const { offers, status } = useOffers(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
 
   useEffect(() => {
-    if (!autoplay || offers.length <= 1) return;
+    if (reducedMotion || !autoplay || offers.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % offers.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [autoplay, offers.length]);
+  }, [autoplay, offers.length, reducedMotion]);
 
   useEffect(() => {
     setCurrentIndex(0);
@@ -43,7 +37,7 @@ export function FeaturedOffers() {
 
   if (status === 'loading' || status === 'no-table' || offers.length === 0) return null;
 
-  const oferta = offers[currentIndex];
+  const oferta = offers[currentIndex % offers.length];
 
   return (
     <section id="ofertas" className="py-24 bg-gradient-to-b from-[hsl(var(--surface-0))] to-[hsl(var(--surface-1))]">

@@ -1,43 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { useOffers, type Offer, OFFERS_TABLE_SQL } from '@/hooks/useOffers';
-import { Plus, Pencil, Trash2, Save, X, Eye, EyeOff, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2, Copy } from 'lucide-react';
+import { useOffers, type Offer } from '@/hooks/useOffers';
+import { Plus, Pencil, Trash2, Save, X, Eye, EyeOff, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 // ─── Setup SQL panel ──────────────────────────────────────────────────────────
 
 function SetupPanel() {
-  const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(OFFERS_TABLE_SQL);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-  return (
-    <div className="p-5 rounded-xl bg-amber-50 border border-amber-300">
-      <div className="flex items-start gap-3 mb-4">
-        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-        <div>
-          <p className="font-semibold text-amber-900">Tabla no encontrada en Supabase</p>
-          <p className="text-sm text-amber-800 mt-1">
-            Ejecutá este SQL en el <strong>SQL Editor</strong> de tu proyecto Supabase para habilitar las ofertas:
-          </p>
-        </div>
-      </div>
-      <div className="relative">
-        <pre className="text-xs bg-white border border-amber-200 rounded-lg p-4 overflow-x-auto text-gray-800 whitespace-pre-wrap">
-          {OFFERS_TABLE_SQL}
-        </pre>
-        <button
-          type="button"
-          onClick={copy}
-          className="absolute top-2 right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-semibold transition-colors"
-        >
-          <Copy size={12} />
-          {copied ? '¡Copiado!' : 'Copiar SQL'}
-        </button>
-      </div>
-    </div>
-  );
+  return <p role="alert" className="p-5 rounded-xl border border-border">Las ofertas necesitan configuración. Aplicá las migraciones incluidas en supabase/migrations según el README.</p>;
 }
 
 // ─── Form modal ───────────────────────────────────────────────────────────────
@@ -61,22 +30,25 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
   const [err, setErr] = useState('');
 
   const handleSave = async () => {
+    if (saving) return;
+    if ([price, originalPrice].some(v => v !== '' && (!Number.isFinite(Number(v)) || Number(v) < 0))) { setErr('Los precios deben ser números mayores o iguales a cero.'); return; }
+    if (image && !/^https?:\/\//i.test(image.trim())) { setErr('La imagen debe tener una dirección http o https.'); return; }
     if (!name.trim()) { setErr('El nombre es obligatorio.'); return; }
     setSaving(true);
     setErr('');
     try {
       await onSave({
         name: name.trim(),
-        brand: brand.trim() || undefined,
-        description: description.trim() || undefined,
+        brand: brand.trim() || '',
+        description: description.trim() || '',
         price: price !== '' ? Number(price) : undefined,
         original_price: originalPrice !== '' ? Number(originalPrice) : undefined,
-        image: image.trim() || undefined,
-        product_code: productCode.trim() || undefined,
+        image: image.trim() || '',
+        product_code: productCode.trim() || '',
         visible,
       });
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(e instanceof Error ? e.message : 'No se pudo guardar la oferta. Revisá los datos y tus permisos.');
       setSaving(false);
     }
   };
@@ -236,6 +208,7 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
 
 export default function OffersAdmin() {
   const { offers, status, reload } = useOffers(false);
+  const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Offer | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -247,11 +220,11 @@ export default function OffersAdmin() {
 
   const handleSave = async (data: Partial<Offer>) => {
     if (editing?.id) {
-      const { error } = await supabase.from('offers').update(data).eq('id', editing.id);
+      const { error } = await supabase.from('offers').update({ ...data, price: data.price ?? null, original_price: data.original_price ?? null }).eq('id', editing.id).select('id').single();
       if (error) throw error;
       notify(true, 'Oferta actualizada correctamente.');
     } else {
-      const { error } = await supabase.from('offers').insert({ ...data, sort_order: offers.length });
+      const { error } = await supabase.from('offers').insert({ ...data, name: data.name ?? '', price: data.price ?? null, original_price: data.original_price ?? null, sort_order: offers.length });
       if (error) throw error;
       notify(true, 'Oferta creada correctamente.');
     }
@@ -262,23 +235,26 @@ export default function OffersAdmin() {
 
   const handleDelete = async (offer: Offer) => {
     if (!window.confirm(`¿Eliminar la oferta "${offer.name}"?`)) return;
-    const { error } = await supabase.from('offers').delete().eq('id', offer.id);
+    const { error } = await supabase.from('offers').delete().eq('id', offer.id).select('id').single();
     if (error) { notify(false, error.message); return; }
     notify(true, 'Oferta eliminada.');
     reload();
   };
 
   const handleToggleVisible = async (offer: Offer) => {
-    const { error } = await supabase.from('offers').update({ visible: !offer.visible }).eq('id', offer.id);
+    const { error } = await supabase.from('offers').update({ visible: !offer.visible }).eq('id', offer.id).select('id').single();
     if (error) { notify(false, error.message); return; }
     reload();
   };
 
   const handleReorder = async (list: Offer[]) => {
-    await Promise.all(
-      list.map((o, i) => supabase.from('offers').update({ sort_order: i }).eq('id', o.id))
-    );
-    reload();
+    if (busy) return; setBusy(true);
+    try {
+      const { error } = await supabase.rpc('reorder_offers', { ids: list.map(o => o.id) });
+      if (error) throw error;
+      await reload();
+    } catch { notify(false, 'No se pudo ordenar. Revisá que las migraciones estén aplicadas.'); }
+    finally { setBusy(false); }
   };
 
   const moveUp = (i: number) => {
@@ -298,10 +274,11 @@ export default function OffersAdmin() {
   const formatPrice = (n: number) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n);
 
+  if (status === 'error') return <div role="alert"><p>No pudimos cargar las ofertas.</p><button onClick={() => void reload()} className="text-primary underline">Reintentar</button></div>;
   if (status === 'no-table') return <SetupPanel />;
 
   return (
-    <div>
+    <fieldset disabled={busy} className="min-w-0">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-[hsl(var(--text-main))]">Ofertas</h2>
@@ -423,6 +400,6 @@ export default function OffersAdmin() {
           onCancel={() => { setShowForm(false); setEditing(null); }}
         />
       )}
-    </div>
+    </fieldset>
   );
 }

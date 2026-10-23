@@ -1,33 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ProductCard } from '@/components/features/ProductCard';
+import { ProductModal } from '@/components/features/ProductModal';
 import {
-  ArrowLeft, ArrowUpDown, ChevronDown, MessageCircle, Search, SlidersHorizontal,
-  X, ZoomIn,
+  ArrowLeft, ArrowUpDown, ChevronDown, Search, SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
 import { useCart } from '@/context/CartContext';
-import { supabase } from '@/lib/supabaseClient';
-import { whatsappUrl } from '@/config/constants';
+import { loadShopProducts } from '@/lib/catalog';
+import type { Product } from '@/lib/models';
 import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
-
-type CustomField = { key: string; label: string; placeholder?: string };
-
-type Product = {
-  id: string;
-  code: string;
-  name: string;
-  description?: string;
-  brand?: string;
-  category?: string;
-  price?: number;
-  images?: string[];
-  custom_fields?: CustomField[];
-};
 
 const ALL = 'all';
 const PRODUCTS_PER_PAGE = 12;
@@ -54,6 +41,8 @@ export default function Productos() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [request, setRequest] = useState(0);
   const [query, setQuery] = useState(() => new URLSearchParams(search).get('q') ?? '');
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>(() => new URLSearchParams(search).get('categoria') ?? ALL);
@@ -65,8 +54,8 @@ export default function Productos() {
     const params = new URLSearchParams(search);
     const q = params.get('q');
     const cat = params.get('categoria');
-    if (q !== null) setQuery(q);
-    if (cat !== null) setCategory(cat);
+    setQuery(q ?? '');
+    setCategory(cat ?? ALL);
   }, [search]);
   const [selected, setSelected] = useState<Product | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(
@@ -89,49 +78,16 @@ export default function Productos() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  // Leer filtro de categoría desde URL — usa useSearch() para detectar cambios de query params
-  // incluso cuando el pathname /productos no cambia (fix de navegación entre categorías)
   useEffect(() => {
-    const params = new URLSearchParams(search);
-    const cat = params.get('categoria');
-    setCategory(cat ?? ALL);
-  }, [search, CATEGORY_GROUPS]);
-
-  // Cargar productos desde Supabase, excluyendo los que tienen oferta activa
-  useEffect(() => {
-    Promise.all([
-      supabase.from('products').select('*').order('name', { ascending: true }),
-      supabase.from('offers').select('product_code').eq('visible', true).not('product_code', 'is', null),
-    ]).then(([productsRes, offersRes]) => {
-      const offerCodes = new Set<string>(
-        ((offersRes.data ?? []) as { product_code: string }[])
-          .map((o) => o.product_code)
-          .filter(Boolean)
-      );
-      const allProducts = (productsRes.data ?? []) as Product[];
-      // Filtrar: excluir los productos cuyo código tiene oferta activa
-      // y los de categoría "Ofertas" (legado)
-      const filtered = allProducts.filter(
-        (p) =>
-          p.category?.toLowerCase() !== 'ofertas' &&
-          (!p.code || !offerCodes.has(p.code))
-      );
-      setProducts(filtered);
-      setLoading(false);
+    const controller = new AbortController();
+    setLoading(true); setLoadError(false);
+    loadShopProducts(controller.signal).then(data => {
+      if (!controller.signal.aborted) setProducts(data);
     }).catch(() => {
-      // Si la tabla offers no existe todavía, cargar todos los productos igualmente
-      supabase
-        .from('products')
-        .select('*')
-        .order('name', { ascending: true })
-        .then(({ data, error }) => {
-          if (!error && data) {
-            setProducts((data as Product[]).filter(p => p.category?.toLowerCase() !== 'ofertas'));
-          }
-          setLoading(false);
-        });
-    });
-  }, []);
+      if (!controller.signal.aborted) setLoadError(true);
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [request]);
 
   // Marcas únicas
   const allBrands = useMemo(
@@ -301,9 +257,9 @@ export default function Productos() {
         </Link>
 
         <div className="flex flex-col gap-2 mb-6">
-          <h1 className="text-4xl font-extrabold text-[hsl(var(--text-main))]">Productos</h1>
+          <h1 className="text-4xl font-extrabold text-[hsl(var(--text-main))]">Tienda</h1>
           <p className="text-[hsl(var(--text-soft))]">
-            {loading
+            {loadError ? 'Catálogo temporalmente no disponible' : loading
               ? 'Cargando...'
               : `${filtered.length} producto${filtered.length !== 1 ? 's' : ''}`}
             {hasFilters && (
@@ -315,18 +271,19 @@ export default function Productos() {
         </div>
 
         {/* ─── BARRA MOBILE (solo visible en < lg) ──────────────────────────── */}
-        <div className="flex lg:hidden gap-2 mb-4">
-          <div className="relative flex-1">
+        <div className="grid grid-cols-2 lg:hidden gap-2 mb-4">
+          <div className="relative col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar productos..."
-              className="w-full h-11 pl-10 pr-4 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
+              aria-label="Buscar en la tienda por producto, marca o código"
+              placeholder="Producto, marca o código..."
+              className="shop-search w-full h-11 pl-10 pr-10 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
             />
             {query && (
-              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <button type="button" aria-label="Limpiar búsqueda" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
                 <X className="h-4 w-4 text-[hsl(var(--text-soft))]" />
               </button>
             )}
@@ -472,11 +429,12 @@ export default function Productos() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar productos..."
-                className="w-full h-11 pl-10 pr-4 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
+                aria-label="Buscar en la tienda por producto, marca o código"
+              placeholder="Producto, marca o código..."
+                className="shop-search w-full h-11 pl-10 pr-10 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
               />
               {query && (
-                <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <button type="button" aria-label="Limpiar búsqueda" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
                   <X className="h-4 w-4 text-[hsl(var(--text-soft))]" />
                 </button>
               )}
@@ -689,6 +647,12 @@ export default function Productos() {
               <div className="flex items-center justify-center py-32">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
               </div>
+            ) : loadError ? (
+              <div role="alert" className="py-24 text-center space-y-4">
+                <h2 className="text-xl font-bold">No pudimos cargar la tienda</h2>
+                <p>Intentá de nuevo en unos instantes.</p>
+                <button className="rounded-lg bg-primary text-white px-5 py-3" onClick={() => setRequest(n => n + 1)}>Reintentar</button>
+              </div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-center">
                 <SlidersHorizontal className="h-12 w-12 text-[hsl(var(--text-soft))] mb-4" />
@@ -779,230 +743,14 @@ export default function Productos() {
       <Footer />
       <WhatsAppButton />
 
-      <AnimatePresence>
+      <>
         {selected && (
-          <ProductModal product={selected} cart={cart} onClose={() => setSelected(null)} />
+          <ProductModal product={selected} onClose={() => setSelected(null)} />
         )}
-      </AnimatePresence>
+      </>
     </main>
   );
 }
 
 // ─── ProductCard ──────────────────────────────────────────────────────────────
 
-function ProductCard({
-  product,
-  index,
-  onOpen,
-  cart,
-}: {
-  product: Product;
-  index: number;
-  onOpen: () => void;
-  cart: ReturnType<typeof useCart>;
-}) {
-  const hasImage = product.images && product.images.length > 0;
-  const isInCart = cart.has(product.code);
-  const [qty, setQty] = useState(1);
-  const [customValues, setCustomValues] = useState<Record<string, string>>({});
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
-      className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-visible flex flex-col h-full"
-    >
-      <div onClick={onOpen} className="relative aspect-square bg-[hsl(var(--surface-2))] overflow-hidden cursor-pointer rounded-t-2xl">
-        {hasImage ? (
-          <img
-            src={product.images![0]}
-            alt={product.name}
-            loading="lazy"
-            className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-[hsl(var(--text-soft))]">
-            <span className="text-3xl">📦</span>
-          </div>
-        )}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-          <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" />
-        </div>
-      </div>
-
-      <div className="p-3 flex-1 cursor-pointer" onClick={onOpen}>
-        {product.category && (
-          <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">{product.category}</p>
-        )}
-        <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{product.name}</p>
-        {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
-
-        {product.price != null && (
-          <p className="text-sm font-bold text-primary mt-2">
-            ${product.price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-          </p>
-        )}
-
-        <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
-        {product.description && (
-          <p className="text-[11px] text-[hsl(var(--text-soft))] mt-1 line-clamp-1">{product.description}</p>
-        )}
-      </div>
-
-      <div className="px-3 pb-3 flex flex-col gap-2">
-        {!isInCart && (
-          <>
-            {product.custom_fields && product.custom_fields.length > 0 && product.custom_fields.map(f => (
-              <input
-                key={f.key}
-                type="text"
-                placeholder={f.placeholder ?? f.label}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setCustomValues(prev => ({ ...prev, [f.key]: val }));
-                }}
-                className="w-full h-9 px-3 rounded-lg border border-primary/40 bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))]/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
-              />
-            ))}
-            <input
-              type="number"
-              min="1"
-              value={qty}
-              onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
-              onClick={(e) => e.stopPropagation()}
-              placeholder="Cantidad"
-              className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-          </>
-        )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            cart.toggle(product.code, { cantidad: String(qty), ...customValues });
-          }}
-          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
-            isInCart
-              ? 'bg-primary text-white border-primary'
-              : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'
-          }`}
-        >
-          {isInCart ? '✓ En cotización' : '+ Agregar a cotización'}
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── ProductModal ─────────────────────────────────────────────────────────────
-
-function ProductModal({
-  product,
-  cart,
-  onClose,
-}: {
-  product: Product;
-  cart: ReturnType<typeof useCart>;
-  onClose: () => void;
-}) {
-  const hasImage = product.images && product.images.length > 0;
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>({ cantidad: '1' });
-  const hasCustomFields = product.custom_fields && product.custom_fields.length > 0;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-      className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4"
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-[hsl(var(--surface-1))] rounded-3xl border border-[hsl(var(--surface-3))] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-      >
-        <div className="flex items-center justify-between p-5 border-b border-[hsl(var(--surface-3))]">
-          <span className="text-xs font-bold uppercase tracking-wider text-primary">{product.category}</span>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-[hsl(var(--surface-2))] transition-colors">
-            <X className="w-5 h-5 text-[hsl(var(--text-main))]" />
-          </button>
-        </div>
-
-        <div className="bg-[hsl(var(--surface-2))] aspect-video flex items-center justify-center">
-          {hasImage ? (
-            <img src={product.images![0]} alt={product.name} className="w-full h-full object-contain p-6" />
-          ) : (
-            <span className="text-6xl">📦</span>
-          )}
-        </div>
-
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-[hsl(var(--text-main))] mb-1">{product.name}</h2>
-          {product.brand && <p className="text-sm text-[hsl(var(--text-soft))] mb-1">{product.brand}</p>}
-          <p className="text-xs font-mono text-[hsl(var(--text-soft))]/60 mb-4">Código: {product.code}</p>
-
-          {product.description && (
-            <p className="text-sm text-[hsl(var(--text-soft))] leading-relaxed mb-6 border-l-2 border-primary/30 pl-3">
-              {product.description}
-            </p>
-          )}
-
-          {/* FIX 6 (modal): Comparación case-insensitive para mostrar precio */}
-          {product.price != null && product.category?.toLowerCase() === 'ofertas' && (
-            <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20">
-              <p className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">Precio especial en oferta</p>
-              <p className="text-3xl font-bold text-primary">
-                ${product.price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          )}
-
-          {hasCustomFields && (
-            <div className="mb-4 space-y-3">
-              {product.custom_fields!.map((f) => (
-                <div key={f.key}>
-                  <label className="text-xs font-semibold text-[hsl(var(--text-soft))] mb-1 block">{f.label}</label>
-                  <input
-                    type="text"
-                    placeholder={f.placeholder}
-                    value={fieldValues[f.key] ?? ''}
-                    onChange={(e) => setFieldValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                    className="w-full h-10 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="mb-4">
-            <label className="text-xs font-semibold text-[hsl(var(--text-soft))] mb-1 block">Cantidad</label>
-            <input
-              type="number"
-              min="1"
-              value={fieldValues['cantidad']}
-              onChange={(e) => setFieldValues((prev) => ({ ...prev, cantidad: e.target.value }))}
-              className="w-full h-10 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-          </div>
-
-          <a
-            href={whatsappUrl(
-              `Hola OXI-GAS, quiero consultar por:\n*${product.name}*\nCódigo: ${product.code}${product.brand ? `\nMarca: ${product.brand}` : ''}\nCantidad: ${fieldValues['cantidad'] || '1'}`,
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full inline-flex items-center justify-center gap-2 bg-[#25d366] hover:bg-[#25d366]/90 text-white font-bold py-3.5 px-6 rounded-xl transition-colors shadow-lg shadow-[#25d366]/20"
-          >
-            <MessageCircle className="w-5 h-5" />
-            Consultar por WhatsApp
-          </a>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}

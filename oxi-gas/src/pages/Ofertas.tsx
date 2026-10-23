@@ -4,20 +4,13 @@ import { MessageCircle, Tag, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
+import { formatPrecio } from '@/lib/format';
 import { whatsappUrl } from '@/config/constants';
-import { useOffers, OFFERS_TABLE_SQL } from '@/hooks/useOffers';
+import { useOffers } from '@/hooks/useOffers';
 
-function formatPrecio(precio: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(precio);
-}
 
 export default function Ofertas() {
-  const { offers, status } = useOffers(true);
+  const { offers, status, reload } = useOffers(true);
 
   return (
     <main className="min-h-screen bg-[hsl(var(--surface-1))]">
@@ -50,6 +43,7 @@ export default function Ofertas() {
         </motion.div>
 
         {/* Estados */}
+        {status === 'error' && <div role="alert" className="py-16 text-center space-y-4"><p>No pudimos cargar las ofertas. Intentá de nuevo.</p><button onClick={() => void reload()} className="rounded-lg bg-primary text-white px-5 py-3">Reintentar</button></div>}
         {status === 'loading' && (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -62,9 +56,9 @@ export default function Ofertas() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
               <div>
-                <p className="font-semibold text-amber-900">Tabla de ofertas no configurada</p>
+                <p className="font-semibold text-amber-900">Ofertas temporalmente no disponibles</p>
                 <p className="text-sm text-amber-700 mt-1">
-                  El administrador del sitio debe crear la tabla en Supabase para activar esta sección.
+                  Podés consultarnos por WhatsApp para conocer las promociones.
                 </p>
               </div>
             </div>
