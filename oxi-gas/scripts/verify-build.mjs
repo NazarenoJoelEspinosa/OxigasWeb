@@ -4,6 +4,12 @@ import assert from 'node:assert/strict';
 const base = process.argv[2] || '/';
 const index = await readFile(new URL('../dist/index.html', import.meta.url), 'utf8');
 assert.ok(index.includes('src="' + base + 'assets/'), 'El HTML debe usar la base configurada');
+if (process.argv[3] === 'cloudflare') {
+  assert.equal(base, '/');
+  await assert.rejects(readFile(new URL('../dist/404.html', import.meta.url)), { code: 'ENOENT' });
+  console.log('Build de Cloudflare verificado: base raíz y fallback SPA nativo');
+  process.exit(0);
+}
 const fallback = await readFile(new URL('../dist/404.html', import.meta.url), 'utf8');
 const script = fallback.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(script, 'Debe existir fallback de rutas profundas');
