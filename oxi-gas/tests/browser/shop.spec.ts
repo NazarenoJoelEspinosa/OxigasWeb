@@ -157,3 +157,18 @@ test('marca de portada abre tienda filtrada en la misma pestaña', async ({ page
   await expect(page.getByText('Taladro Bosch', { exact: true })).toBeVisible();
   await expect(page.getByText('Martillo Bremen', { exact: true })).toHaveCount(0);
 });
+
+
+test('marca abreviada B&D coincide con Black & Decker en la portada', async ({ page }) => {
+  await page.route('**/rest/v1/products?**', route => {
+    const url = new URL(route.request().url());
+    return route.fulfill({ json: url.searchParams.get('offset') === '0' ? [
+      { id: 'bd', code: 'BD1', name: 'Taladro B&D', brand: 'B&D', visible: true },
+      { id: 'bd2', code: 'BD2', name: 'Amoladora Black & Decker', brand: 'Black & Decker', visible: true },
+    ] : [] });
+  });
+  await page.goto('./productos?marca=Black%20%26%20Decker');
+  await expect(page.getByText('Taladro B&D', { exact: true })).toBeVisible();
+  await expect(page.getByText('Amoladora Black & Decker', { exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox').filter({ visible: true })).toHaveCount(1);
+});

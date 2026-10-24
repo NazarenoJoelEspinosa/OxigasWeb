@@ -30,7 +30,11 @@ const SIDEBAR_PARENTS: { label: string; icon: string; childLabels: string[] }[] 
 ];
 
 const EXACT_PREFIX = '__exact__';
-const brandKey = (value: string) => normalize(value).replace(/[^a-z0-9]/g, '');
+const brandKey = (value: string) => {
+  const key = normalize(value).replace(/[^a-z0-9]/g, '');
+  const aliases: Record<string, string> = { bd: 'blackdecker', blackanddecker: 'blackdecker', bremenn: 'bremen', lusqstoff: 'lusqtoff' };
+  return aliases[key] ?? key;
+};
 const includesBrand = (selected: Set<string>, brand: string) => [...selected].some(item => brandKey(item) === brandKey(brand));
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -102,7 +106,7 @@ export default function Productos() {
 
   // Marcas únicas
   const allBrands = useMemo(
-    () => [...new Set(products.map((p) => p.brand).filter(Boolean) as string[])].sort(),
+    () => [...new Map(products.filter(p => p.brand).map(p => [brandKey(p.brand!), p.brand!])).values()].sort((a,b) => a.localeCompare(b, 'es')),
     [products],
   );
 
@@ -403,7 +407,7 @@ export default function Productos() {
                     {allBrands.map((b) => {
                       const checked = includesBrand(selectedBrands, b);
                       const targetGi = findGroup(category);
-                      const count = products.filter((p) => p.brand === b && (category === ALL || (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category)))).length;
+                      const count = products.filter((p) => brandKey(p.brand ?? '') === brandKey(b) && (category === ALL || (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category)))).length;
                       if (count === 0 && !checked) return null;
                       return (
                         <label key={b} className={`flex items-center gap-3 px-4 py-2 cursor-pointer text-sm transition-colors ${checked ? 'bg-primary/10 text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}>
@@ -621,7 +625,7 @@ export default function Productos() {
                   const checked = includesBrand(selectedBrands, b);
                   const targetGi = findGroup(category);
                   const count = products.filter(
-                    (p) => p.brand === b && (
+                    (p) => brandKey(p.brand ?? '') === brandKey(b) && (
                       category === ALL ||
                       (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category))
                     ),
