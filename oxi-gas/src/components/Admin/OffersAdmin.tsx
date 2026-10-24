@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useOffers, type Offer } from '@/hooks/useOffers';
+import { validateImage, uploadOfferImage, discardUploadedImage } from '@/lib/image-upload';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Save, X, Eye, EyeOff, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 // ─── Setup SQL panel ──────────────────────────────────────────────────────────
@@ -24,6 +26,14 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
   const [price, setPrice] = useState<string>(initial?.price != null ? String(initial.price) : '');
   const [originalPrice, setOriginalPrice] = useState<string>(initial?.original_price != null ? String(initial.original_price) : '');
   const [image, setImage] = useState(initial?.image ?? '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState('');
+  useEffect(() => {
+    if (!imageFile) { setPreview(''); return; }
+    const url = URL.createObjectURL(imageFile);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
   const [productCode, setProductCode] = useState(initial?.product_code ?? '');
   const [visible, setVisible] = useState(initial?.visible ?? true);
   const [saving, setSaving] = useState(false);
@@ -32,46 +42,52 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
   const handleSave = async () => {
     if (saving) return;
     if ([price, originalPrice].some(v => v !== '' && (!Number.isFinite(Number(v)) || Number(v) < 0))) { setErr('Los precios deben ser números mayores o iguales a cero.'); return; }
-    if (image && !/^https?:\/\//i.test(image.trim())) { setErr('La imagen debe tener una dirección http o https.'); return; }
+    if (!imageFile && image && !/^https?:\/\//i.test(image.trim())) { setErr('La imagen debe tener una dirección http o https.'); return; }
     if (!name.trim()) { setErr('El nombre es obligatorio.'); return; }
     setSaving(true);
     setErr('');
+    let uploadedPath: string | undefined;
     try {
+      let imageUrl = image.trim();
+      if (imageFile) {
+        const uploaded = await uploadOfferImage(imageFile);
+        uploadedPath = uploaded.path;
+        imageUrl = uploaded.url;
+      }
       await onSave({
         name: name.trim(),
         brand: brand.trim() || '',
         description: description.trim() || '',
         price: price !== '' ? Number(price) : undefined,
         original_price: originalPrice !== '' ? Number(originalPrice) : undefined,
-        image: image.trim() || '',
+        image: imageUrl,
         product_code: productCode.trim() || '',
         visible,
       });
     } catch (e) {
+      if (uploadedPath) await discardUploadedImage(uploadedPath);
       setErr(e instanceof Error ? e.message : 'No se pudo guardar la oferta. Revisá los datos y tus permisos.');
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[hsl(var(--surface-1))] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+    <Dialog open onOpenChange={open => { if (!open && !saving) onCancel(); }}>
+      <DialogContent aria-describedby={undefined} onEscapeKeyDown={event => { if (saving) event.preventDefault(); }} onPointerDownOutside={event => { if (saving) event.preventDefault(); }} className="block p-0 bg-[hsl(var(--surface-1))] rounded-2xl w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between p-6 border-b border-[hsl(var(--surface-3))]">
-          <h3 className="text-xl font-bold text-[hsl(var(--text-main))]">
+          <DialogTitle className="text-xl font-bold text-[hsl(var(--text-main))]">
             {initial?.id ? 'Editar oferta' : 'Nueva oferta'}
-          </h3>
-          <button type="button" onClick={onCancel} className="text-[hsl(var(--text-soft))] hover:text-[hsl(var(--text-main))]">
-            <X size={20} />
-          </button>
+          </DialogTitle>
         </div>
 
-        <div className="p-6 space-y-4">
+        <fieldset disabled={saving} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">
               Nombre <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
+              aria-label="Nombre de la oferta"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Amoladora Bosch 115mm"
@@ -149,42 +165,49 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">URL de imagen</label>
+            <label htmlFor="offer-image-file" className="block text-sm font-semibold mb-1.5">Foto de la oferta</label>
+            <input id="offer-image-file" type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm mb-2" onChange={event => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              try { validateImage(file); setImageFile(file); setErr(''); }
+              catch (error) { setErr(error instanceof Error ? error.message : 'Imagen inválida.'); event.target.value = ''; }
+            }} />
+            <p className="text-xs text-[hsl(var(--text-soft))] mb-3">Elegí una foto de tu celular o computadora. JPG, PNG o WebP, hasta 5 MB.</p>
+            {imageFile && <button type="button" onClick={() => { setImageFile(null); const input = document.getElementById('offer-image-file') as HTMLInputElement | null; if (input) input.value = ''; }} className="text-sm text-primary underline mb-3">Descartar foto seleccionada</button>}
+            <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">O pegá una URL de imagen (opcional)</label>
             <input
+              aria-label="URL de imagen (opcional)"
               type="url"
+              disabled={Boolean(imageFile)}
               value={image}
               onChange={(e) => setImage(e.target.value)}
               placeholder="https://..."
               className="w-full px-3 py-2.5 border border-[hsl(var(--surface-3))] rounded-xl bg-[hsl(var(--surface-0))] text-[hsl(var(--text-main))] text-sm focus:outline-none focus:border-primary"
             />
-            {image && (
+            {(preview || image) && (
               <div className="mt-2 rounded-xl overflow-hidden border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-2))] h-32 flex items-center justify-center">
-                <img src={image} alt="Preview" className="h-full w-full object-contain p-2" />
+                <img src={preview || image} alt="Vista previa de la oferta" className="h-full w-full object-contain p-2" />
               </div>
             )}
           </div>
 
           <label className="flex items-center gap-3 cursor-pointer">
-            <div
-              onClick={() => setVisible(!visible)}
-              className={`relative w-10 h-6 rounded-full transition-colors ${visible ? 'bg-primary' : 'bg-[hsl(var(--surface-3))]'}`}
-            >
-              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${visible ? 'left-5' : 'left-1'}`} />
-            </div>
+            <input type="checkbox" checked={visible} onChange={event => setVisible(event.target.checked)} className="w-5 h-5 accent-primary" />
             <span className="text-sm font-semibold text-[hsl(var(--text-main))]">
               {visible ? 'Visible en el sitio' : 'Oculta (no se muestra)'}
             </span>
           </label>
 
           {err && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p>
+            <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</p>
           )}
-        </div>
+        </fieldset>
 
         <div className="flex gap-3 p-6 pt-0">
           <button
             type="button"
             onClick={onCancel}
+            disabled={saving}
             className="flex-1 px-4 py-2.5 rounded-xl border border-[hsl(var(--surface-3))] text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))] transition-colors text-sm font-semibold"
           >
             Cancelar
@@ -199,8 +222,8 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
             Guardar oferta
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

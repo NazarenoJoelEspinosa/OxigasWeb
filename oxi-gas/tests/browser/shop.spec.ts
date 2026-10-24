@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/fixture-photo-*.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect width="320" height="240" fill="#edf2f7"/><text x="160" y="120" text-anchor="middle" fill="#245a9b" font-family="sans-serif" font-size="18">Foto de prueba</text></svg>' }));
   await page.route('https://fixture.supabase.co/**', async route => {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();
     const products = [
-      { id: '1', code: 'A', name: 'Taladro Bosch', brand: 'Bosch', category: 'Herramientas eléctricas', visible: true },
+      { id: '1', code: 'A', name: 'Taladro Bosch', brand: 'Bosch', category: 'Herramientas eléctricas', visible: true, images: ['/fixture-photo-1.svg', '/fixture-photo-2.svg'] },
       { id: '2', code: 'B', name: 'Martillo Bremen', brand: 'Bremen', category: 'Herramientas manuales', visible: true },
     ];
     const offset = Number(url.searchParams.get('offset') || 0);
@@ -104,6 +105,55 @@ test('panel sin sesión redirige antes de consultar productos', async ({ page })
 test('fallback de ruta conserva búsqueda al recargar', async ({ page }) => {
   await page.goto('./?__route=' + encodeURIComponent('/productos?q=Bosch'));
   await expect(page).toHaveURL(/productos\?q=Bosch$/);
+  await expect(page.getByText('Taladro Bosch', { exact: true })).toBeVisible();
+  await expect(page.getByText('Martillo Bremen', { exact: true })).toHaveCount(0);
+});
+
+
+test('galería cambia fotos, enlace directo resiste recarga y Escape conserva filtros', async ({ page }) => {
+  await page.goto('./productos?marca=Bosch&producto=A');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Taladro Bosch' })).toBeVisible();
+  await expect(dialog.getByRole('img', { name: 'Taladro Bosch — foto 1', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Ver foto 2', exact: true }).click();
+  await expect(dialog.getByRole('img', { name: 'Taladro Bosch — foto 2', exact: true })).toHaveAttribute('src', '/fixture-photo-2.svg');
+  await dialog.getByRole('button', { name: 'Foto siguiente', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: 'Ver foto 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.screenshot({ path: 'test-results/galeria-producto.png', fullPage: true });
+  await page.reload();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(/marca=Bosch$/);
+  await expect(page.getByText('Martillo Bremen', { exact: true })).toHaveCount(0);
+});
+
+test('el filtro de marca acepta mayúsculas y se puede desmarcar', async ({ page }) => {
+  await page.goto('./productos?marca=BOSCH');
+  const checkbox = page.getByRole('checkbox', { name: /Bosch/ }).filter({ visible: true });
+  await expect(checkbox).toBeChecked();
+  await expect(page.getByText('Martillo Bremen', { exact: true })).toHaveCount(0);
+  await checkbox.uncheck();
+  await expect(page.getByText('Martillo Bremen', { exact: true })).toBeVisible();
+});
+
+test('compartir copia un enlace limpio y un producto inexistente muestra aviso', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.addInitScript(() => Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }));
+  await page.goto('./productos?q=Bosch&producto=A');
+  await page.getByRole('button', { name: 'Compartir producto' }).click();
+  await expect(page.getByText('Enlace copiado. Ya podés enviarlo.')).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('http://127.0.0.1:4173/OxigasWeb/productos?producto=A');
+  await page.goto('./productos?producto=DESCONTINUADO');
+  await expect(page.getByText('El producto de este enlace ya no está disponible.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Seguir en la tienda' }).click();
+  await expect(page).toHaveURL(/productos$/);
+});
+
+test('marca de portada abre tienda filtrada en la misma pestaña', async ({ page }) => {
+  await page.goto('./');
+  const brand = page.getByRole('link').filter({ has: page.getByRole('img', { name: 'Bosch', exact: true }) });
+  await expect(brand).toHaveAttribute('href', '/OxigasWeb/productos?marca=Bosch');
+  await brand.click();
   await expect(page.getByText('Taladro Bosch', { exact: true })).toBeVisible();
   await expect(page.getByText('Martillo Bremen', { exact: true })).toHaveCount(0);
 });

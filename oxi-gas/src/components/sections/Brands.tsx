@@ -5,7 +5,7 @@ import logo3m from '@assets/logo-3m.png';
 import logoDewalt from '@assets/logo-dewalt.png';
 import logoBremen from '@assets/logo-bremen.png';
 import logoBosch from '@assets/logo-bosch.png';
-import { whatsappUrl } from '@/config/constants';
+import { brandPath } from '@/lib/shop-links';
 
 const base = import.meta.env.BASE_URL;
 
@@ -57,9 +57,9 @@ const carouselBrands = brands.slice(FEATURED_COUNT);
 function BrandCard({ brand, index }: { brand: typeof brands[0]; index: number }) {
   return (
     <motion.a
-      href={whatsappUrl(`Hola OXI-GAS, quiero consultar por productos de la marca ${brand.name}.`)}
-      target="_blank"
-      rel="noopener noreferrer"
+      href={brandPath(brand.name)}
+      
+      
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -129,7 +129,7 @@ export function Brands() {
           </h2>
           <p className="text-lg md:text-xl text-[hsl(var(--text-soft))] max-w-2xl mx-auto">
             Trabajamos con marcas reconocidas para ofrecer calidad, respaldo y las mejores opciones.
-            Tocá cualquier marca para consultarnos por WhatsApp.
+            Tocá una marca para ver sus productos en la tienda.
           </p>
         </motion.div>
 
@@ -176,9 +176,9 @@ export function Brands() {
               {carouselBrands.map((brand, index) => (
                 <a
                   key={brand.name}
-                  href={whatsappUrl(`Hola OXI-GAS, quiero consultar por productos de la marca ${brand.name}.`)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={brandPath(brand.name)}
+                  
+                  
                   className="group snap-center flex-shrink-0 w-[150px] h-[80px] sm:w-[160px] sm:h-[85px] md:w-[170px] md:h-[90px] rounded-2xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] hover:border-primary hover:-translate-y-1 transition-all duration-300 px-3"
                 >
                   <div className="w-full h-full rounded-xl bg-white flex items-center justify-center overflow-hidden px-2">

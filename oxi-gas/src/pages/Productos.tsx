@@ -30,13 +30,20 @@ const SIDEBAR_PARENTS: { label: string; icon: string; childLabels: string[] }[] 
 ];
 
 const EXACT_PREFIX = '__exact__';
+const brandKey = (value: string) => normalize(value).replace(/[^a-z0-9]/g, '');
+const includesBrand = (selected: Set<string>, brand: string) => [...selected].some(item => brandKey(item) === brandKey(brand));
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function Productos() {
   const cart = useCart();
-  useLocation(); // mantiene compatibilidad con wouter para re-renders en cambios de ruta
+  const [, setLocation] = useLocation();
   const search = useSearch();
+  const urlParams = new URLSearchParams(search);
+  const urlQuery = urlParams.get('q') ?? '';
+  const urlCategory = urlParams.get('categoria') ?? ALL;
+  const urlBrand = urlParams.get('marca') ?? '';
+  const productCode = urlParams.get('producto');
   const { groups: CATEGORY_GROUPS } = useCategoryGroups();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -51,13 +58,17 @@ export default function Productos() {
 
   // Sincronizar con parámetros de URL cuando el usuario navega desde el header
   useEffect(() => {
+    setQuery(urlQuery);
+    setCategory(urlCategory);
+    setSelectedBrands(new Set(urlBrand ? [urlBrand] : []));
+  }, [urlQuery, urlCategory, urlBrand]);
+  const selected = products.find(product => product.code === productCode) ?? null;
+  const selectProduct = (product: Product | null) => {
     const params = new URLSearchParams(search);
-    const q = params.get('q');
-    const cat = params.get('categoria');
-    setQuery(q ?? '');
-    setCategory(cat ?? ALL);
-  }, [search]);
-  const [selected, setSelected] = useState<Product | null>(null);
+    if (product) params.set('producto', product.code);
+    else params.delete('producto');
+    setLocation('/productos' + (params.size ? '?' + params.toString() : ''), { replace: !product });
+  };
   const [expandedParents, setExpandedParents] = useState<Set<string>>(
     new Set(SIDEBAR_PARENTS.map(p => p.label))
   );
@@ -100,7 +111,7 @@ export default function Productos() {
     const counts = new Array(CATEGORY_GROUPS.length).fill(0);
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
     for (const p of products) {
-      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) continue;
+      if (selectedBrands.size > 0 && (!p.brand || !includesBrand(selectedBrands, p.brand))) continue;
       if (terms.length > 0) {
         const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
         if (!terms.every((t) => hay.includes(t))) continue;
@@ -153,7 +164,7 @@ export default function Productos() {
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
     for (const p of products) {
       if (!p.category) continue;
-      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) continue;
+      if (selectedBrands.size > 0 && (!p.brand || !includesBrand(selectedBrands, p.brand))) continue;
       if (terms.length > 0) {
         const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
         if (!terms.every((t) => hay.includes(t))) continue;
@@ -194,7 +205,7 @@ export default function Productos() {
           }
         }
       }
-      if (selectedBrands.size > 0 && (!p.brand || !selectedBrands.has(p.brand))) return false;
+      if (selectedBrands.size > 0 && (!p.brand || !includesBrand(selectedBrands, p.brand))) return false;
       if (terms.length === 0) return true;
       const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
       return terms.every((t) => hay.includes(t));
@@ -239,7 +250,8 @@ export default function Productos() {
   const toggleBrand = (b: string) => {
     setSelectedBrands((prev) => {
       const next = new Set(prev);
-      next.has(b) ? next.delete(b) : next.add(b);
+      const existing = [...next].find(item => brandKey(item) === brandKey(b));
+      if (existing !== undefined) next.delete(existing); else next.add(b);
       return next;
     });
   };
@@ -389,7 +401,7 @@ export default function Productos() {
                   </div>
                   <div className="py-2 max-h-64 overflow-y-auto">
                     {allBrands.map((b) => {
-                      const checked = selectedBrands.has(b);
+                      const checked = includesBrand(selectedBrands, b);
                       const targetGi = findGroup(category);
                       const count = products.filter((p) => p.brand === b && (category === ALL || (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category)))).length;
                       if (count === 0 && !checked) return null;
@@ -606,7 +618,7 @@ export default function Productos() {
               </div>
               <div className="py-2 max-h-64 overflow-y-auto">
                 {allBrands.map((b) => {
-                  const checked = selectedBrands.has(b);
+                  const checked = includesBrand(selectedBrands, b);
                   const targetGi = findGroup(category);
                   const count = products.filter(
                     (p) => p.brand === b && (
@@ -673,7 +685,7 @@ export default function Productos() {
                       key={product.id}
                       product={product}
                       index={i}
-                      onOpen={() => setSelected(product)}
+                      onOpen={() => selectProduct(product)}
                       cart={cart}
                     />
                   ))}
@@ -741,11 +753,12 @@ export default function Productos() {
       </div>
 
       <Footer />
+      {!loading && !loadError && productCode && !selected && <div role="status" className="fixed bottom-20 left-4 right-4 z-40 bg-background border rounded-xl p-4 shadow-lg text-center">El producto de este enlace ya no está disponible. <button onClick={() => selectProduct(null)} className="text-primary underline">Seguir en la tienda</button></div>}
       <WhatsAppButton />
 
       <>
         {selected && (
-          <ProductModal product={selected} onClose={() => setSelected(null)} />
+          <ProductModal key={selected.code} product={selected} onClose={() => selectProduct(null)} />
         )}
       </>
     </main>
