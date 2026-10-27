@@ -44,3 +44,37 @@ export function primaryCategoryPath(product: CategoryProduct, categories: readon
 export function orderedCategories(categories: readonly CategoryGroup[]): CategoryGroup[] {
   return [...categories].sort((a, b) => categoryPath(a.id ?? '', categories).localeCompare(categoryPath(b.id ?? '', categories), 'es'));
 }
+
+export function visibleCategoryRows(categories: readonly CategoryGroup[], expanded: ReadonlySet<string>, search = '') {
+  const query = categoryKey(search);
+  const included = new Set<string>();
+  const byId = new Map(categories.filter(cat => cat.id).map(cat => [cat.id!, cat]));
+  if (query) for (const category of byId.values()) {
+    if (!categoryKey(categoryPath(category.id!, categories)).includes(query)) continue;
+    let node: CategoryGroup | undefined = category;
+    const visited = new Set<string>();
+    while (node?.id && !visited.has(node.id)) {
+      visited.add(node.id); included.add(node.id); node = byId.get(node.parent_id ?? '');
+    }
+  }
+  const children = new Map<string, CategoryGroup[]>();
+  for (const category of byId.values()) {
+    const parent = category.parent_id && byId.has(category.parent_id) ? category.parent_id : '';
+    children.set(parent, [...(children.get(parent) ?? []), category]);
+  }
+  for (const list of children.values()) list.sort((a,b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label, 'es'));
+  const rows: { category: CategoryGroup; depth: number; childCount: number; open: boolean }[] = [];
+  const visited = new Set<string>();
+  const walk = (parent: string, depth: number) => {
+    for (const category of children.get(parent) ?? []) {
+      if (visited.has(category.id!) || (query && !included.has(category.id!))) continue;
+      visited.add(category.id!);
+      const childCount = children.get(category.id!)?.length ?? 0;
+      const open = childCount > 0 && (Boolean(query) || expanded.has(category.id!));
+      rows.push({category, depth, childCount, open});
+      if (open) walk(category.id!, depth + 1);
+    }
+  };
+  walk('', 0);
+  return rows;
+}

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { categoryBranch, categoryKey, categoryPath, orderedCategories, primaryCategoryPath } from '@/lib/categories';
+import { categoryBranch, categoryKey, categoryPath, orderedCategories, primaryCategoryPath, visibleCategoryRows } from '@/lib/categories';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { errorMessage, type Product } from '@/lib/models';
 import type { CategoryGroup } from '@/hooks/useCategoryGroups';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -13,6 +14,9 @@ export default function TaxonomyAdmin({ categories, products, onChanged }: {
   const [parent, setParent] = useState('');
   const [order, setOrder] = useState(0);
   const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const categoryRows = visibleCategoryRows(categories, expanded, search);
+  const toggleExpanded = (id: string) => setExpanded(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [viewing, setViewing] = useState<string | null>(null);
@@ -56,7 +60,13 @@ export default function TaxonomyAdmin({ categories, products, onChanged }: {
     try {
       const { error } = await supabase.rpc('save_catalog_category', { p_id: editing, p_label: label, p_parent_id: parent || null, p_sort_order: order });
       if (error) throw new Error(error.message);
-      await onChanged(); reset(); setMessage('Categoría guardada. Los productos conservan sus asociaciones.');
+      await onChanged();
+      setExpanded(current => {
+        const next = new Set(current); const visited = new Set<string>(); let node = categories.find(cat => cat.id === parent);
+        while (node?.id && !visited.has(node.id)) { visited.add(node.id); next.add(node.id); node = categories.find(cat => cat.id === node!.parent_id); }
+        return next;
+      });
+      setSearch(''); reset(); setMessage('Categoría guardada. Los productos conservan sus asociaciones.');
     } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); }
   };
   const remove = async (cat: CategoryGroup) => {
@@ -99,14 +109,15 @@ export default function TaxonomyAdmin({ categories, products, onChanged }: {
       <div className="flex gap-4"><button disabled={busy} className="bg-primary text-white rounded px-4 py-2 disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar categoría'}</button><button type="button" disabled={busy} onClick={reset}>Limpiar formulario</button></div>
     </form>
     <input type="search" aria-label="Buscar categorías" placeholder="Buscar por nombre o ruta…" value={search} onChange={e => setSearch(e.target.value)} className="w-full border rounded p-2 bg-background" />
-    <div className="overflow-x-auto border rounded bg-background"><table className="w-full text-sm text-left"><thead><tr><th className="p-3">Ruta</th><th className="p-3">Orden</th><th className="p-3">Principal / relacionada</th><th className="p-3">Acciones</th></tr></thead>
-      <tbody>{orderedCategories(categories).filter(cat => categoryPath(cat.id!, categories).toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))).map(cat => {
+    <div className="flex flex-wrap gap-4 text-sm"><button type="button" onClick={() => { setSearch(''); setExpanded(new Set()); }} className="text-primary">Plegar todo</button><button type="button" onClick={() => { setSearch(''); setExpanded(new Set(categories.filter(cat => categories.some(child => child.parent_id === cat.id)).map(cat => cat.id!))); }} className="text-primary">Expandir todo</button></div>
+    <p className="text-xs text-muted-foreground">{search.trim() ? 'La búsqueda muestra las coincidencias y sus categorías superiores. Borrá la búsqueda para volver a plegar por niveles.' : 'Abrí cada flecha para ver el siguiente nivel. Los números de Principal / relacionada cuentan asociaciones directas.'}</p>
+    <div className="overflow-x-auto border rounded bg-background"><table className="w-full text-sm text-left"><thead><tr><th className="p-3">Categoría</th><th className="p-3">Orden</th><th className="p-3">Principal / relacionada</th><th className="p-3">Acciones</th></tr></thead>
+      <tbody>{categoryRows.map(({category: cat, depth, childCount: children, open}) => {
         const direct = products.flatMap(p => p.product_category_links.filter(link => link.category_id === cat.id));
-        const children = categories.filter(child => child.parent_id === cat.id).length;
         const ids = categoryBranch(cat.id!, categories);
         const count = products.filter(p => p.product_category_links.some(link => ids.has(link.category_id))).length;
-        return <tr key={cat.id} className="border-t"><td className="p-3">{categoryPath(cat.id!, categories)}{children > 0 && <span className="block text-xs text-muted-foreground">{children} subcategorías directas</span>}</td><td className="p-3">{cat.sort_order}</td><td className="p-3">{direct.filter(link => link.is_primary).length} / {direct.filter(link => !link.is_primary).length}</td><td className="p-3 whitespace-nowrap"><button type="button" disabled={busy} aria-label={`Ver productos de ${categoryPath(cat.id!, categories)}`} onClick={event => { viewingTrigger.current = event.currentTarget; setViewing(cat.id!); setIncludeChildren(true); setProductSearch(''); setMessage(''); }} className="text-primary mr-4">Ver productos ({count})</button><button type="button" disabled={busy} onClick={() => edit(cat)} className="text-primary mr-4">Editar</button><button type="button" disabled={busy || children > 0 || direct.length > 0} title={children || direct.length ? 'Mové primero los productos y subcategorías' : 'Eliminar categoría vacía'} onClick={() => void remove(cat)} className="text-destructive disabled:opacity-30">Eliminar</button></td></tr>;
-      })}</tbody></table></div>
+        return <tr key={cat.id} className="border-t"><td aria-label={categoryPath(cat.id!, categories)} className="p-3" style={{paddingLeft: 12 + depth * 20}}><div className="flex items-center gap-2">{children > 0 ? <button type="button" disabled={Boolean(search.trim())} aria-expanded={open} aria-label={`${open ? 'Ocultar' : 'Mostrar'} subcategorías de ${categoryPath(cat.id!, categories)}`} onClick={() => toggleExpanded(cat.id!)} className="shrink-0 rounded border p-1.5 hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40">{open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}</button> : <span className="w-8 shrink-0" aria-hidden="true" />}<span className={depth === 0 ? 'font-semibold' : ''}>{cat.label}{children > 0 && <span className="block text-xs text-muted-foreground font-normal">{children} subcategorías</span>}</span></div></td><td className="p-3">{cat.sort_order}</td><td className="p-3">{direct.filter(link => link.is_primary).length} / {direct.filter(link => !link.is_primary).length}</td><td className="p-3 whitespace-nowrap"><button type="button" disabled={busy} aria-label={`Ver productos de ${categoryPath(cat.id!, categories)}`} onClick={event => { viewingTrigger.current = event.currentTarget; setViewing(cat.id!); setIncludeChildren(true); setProductSearch(''); setMessage(''); }} className="text-primary mr-4">Ver productos ({count})</button><button type="button" disabled={busy} onClick={() => edit(cat)} className="text-primary mr-4">Editar</button><button type="button" disabled={busy || children > 0 || direct.length > 0} title={children || direct.length ? 'Mové primero los productos y subcategorías' : 'Eliminar categoría vacía'} onClick={() => void remove(cat)} className="text-destructive disabled:opacity-30">Eliminar</button></td></tr>;
+      })}</tbody></table>{categoryRows.length === 0 && <p className="p-4 text-sm text-muted-foreground">No se encontraron categorías.</p>}</div>
     <Sheet open={Boolean(viewedCategory)} onOpenChange={open => { if (!open) { setViewing(null); setAdding(false); setAddSelection(new Set()); } }}>
     {viewedCategory && <SheetContent onCloseAutoFocus={event => { event.preventDefault(); viewingTrigger.current?.focus(); }} className="w-full sm:max-w-2xl flex flex-col gap-3">
       <SheetHeader className="text-left pr-5"><SheetTitle>Productos de {categoryPath(viewedCategory.id!, categories)} ({categoryProducts.length})</SheetTitle><SheetDescription>Agregá productos del catálogo o quitá las asociaciones que no correspondan.</SheetDescription></SheetHeader>

@@ -124,6 +124,39 @@ test('administración crea, renombra y mueve una subcategoría', async ({ page }
   expect(writes[1]).toMatchObject({p_id:id(20),p_parent_id:id(1)});
 });
 
+test('administración muestra sólo principales y despliega subcategorías nivel por nivel', async ({ page }) => {
+  await setup(page,true);
+  await page.goto('./admin/dashboard');
+  await page.getByRole('button',{name:'Categorías',exact:true}).click();
+  const table=page.getByRole('table');
+  await expect(table.getByRole('row')).toHaveCount(4);
+  const discs=table.getByRole('cell',{name:'Insumos → Discos',exact:true});
+  const cut=table.getByRole('cell',{name:'Insumos → Discos → Corte',exact:true});
+  await expect(discs).toHaveCount(0);
+  const root=page.getByRole('button',{name:'Mostrar subcategorías de Insumos',exact:true});
+  await root.focus(); await root.press('Enter');
+  await expect(discs).toBeVisible();
+  await expect(cut).toHaveCount(0);
+  const child=page.getByRole('button',{name:'Mostrar subcategorías de Insumos → Discos',exact:true});
+  await child.click();
+  await expect(cut).toBeVisible();
+  await expect(page.getByRole('button',{name:'Ocultar subcategorías de Insumos → Discos',exact:true})).toHaveAttribute('aria-expanded','true');
+  await page.screenshot({path:'test-results/admin-arbol-categorias.png',fullPage:false});
+  await page.getByRole('button',{name:'Ocultar subcategorías de Insumos',exact:true}).click();
+  await expect(discs).toHaveCount(0); await expect(cut).toHaveCount(0);
+  const search=page.getByRole('searchbox',{name:'Buscar categorías',exact:true});
+  await search.fill('desbáste');
+  await expect(table.getByRole('cell',{name:'Insumos → Discos → Desbaste',exact:true})).toBeVisible();
+  await expect(table.getByRole('cell',{name:'Soldadura',exact:true})).toHaveCount(0);
+  await search.fill('ninguna categoría');
+  await expect(page.getByText('No se encontraron categorías.',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Plegar todo',exact:true}).click();
+  await expect(search).toHaveValue('');
+  await expect(table.getByRole('row')).toHaveCount(4);
+  await page.getByRole('button',{name:'Expandir todo',exact:true}).click();
+  await expect(table.getByRole('row')).toHaveCount(7);
+});
+
 test('selecciona productos entre páginas y clasifica el lote con confirmación', async ({ page }) => {
   await page.setViewportSize({width:390,height:844});
   const {products} = await setup(page,true);
