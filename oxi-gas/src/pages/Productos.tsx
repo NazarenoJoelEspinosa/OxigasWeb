@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ProductCard } from '@/components/features/ProductCard';
 import { ProductModal } from '@/components/features/ProductModal';
 import {
-  ArrowLeft, ArrowUpDown, ChevronDown, Search, SlidersHorizontal,
+  ArrowLeft, Search, SlidersHorizontal,
   X,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -13,6 +13,7 @@ import { useCart } from '@/context/CartContext';
 import { loadShopProducts } from '@/lib/catalog';
 import type { Product } from '@/lib/models';
 import { useCategoryGroups } from '@/hooks/useCategoryGroups';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ export default function Productos() {
   const [category, setCategory] = useState<string>(() => new URLSearchParams(search).get('categoria') ?? ALL);
   const [sortBy, setSortBy] = useState<SortOption>('category-asc');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const filtersButton = useRef<HTMLButtonElement>(null);
 
   // Sincronizar con parámetros de URL cuando el usuario navega desde el header
   useEffect(() => {
@@ -73,11 +75,6 @@ export default function Productos() {
     else params.delete('producto');
     setLocation('/productos' + (params.size ? '?' + params.toString() : ''), { replace: !product });
   };
-  const [expandedParents, setExpandedParents] = useState<Set<string>>(
-    new Set(SIDEBAR_PARENTS.map(p => p.label))
-  );
-  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
-
   /** Devuelve el índice del grupo al que pertenece una categoría (por label o por slug). -1 si no matchea. */
   const findGroup = (cat: string): number => {
     const n = normalize(cat);
@@ -110,79 +107,24 @@ export default function Productos() {
     [products],
   );
 
-  // Contar productos por grupo (respetando filtros de búsqueda y marca, ignorando filtro de categoría)
-  const countByGroup = useMemo(() => {
-    const counts = new Array(CATEGORY_GROUPS.length).fill(0);
-    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
-    for (const p of products) {
-      if (selectedBrands.size > 0 && (!p.brand || !includesBrand(selectedBrands, p.brand))) continue;
-      if (terms.length > 0) {
-        const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
-        if (!terms.every((t) => hay.includes(t))) continue;
-      }
-      const gi = findGroup(p.category || '');
-      if (gi >= 0) counts[gi]++;
-    }
-    return counts as number[];
-  }, [products, selectedBrands, query, CATEGORY_GROUPS]);
+  // Las categorías se mantienen visibles aunque la búsqueda no tenga resultados.
+  const categoryOptions = useMemo(() => {
+    const options = CATEGORY_GROUPS.filter((_, i) => products.some(p => findGroup(p.category ?? '') === i))
+      .map(group => ({ value: group.label, label: group.label }));
+    const ungrouped = [...new Set(products.map(p => p.category).filter((cat): cat is string => Boolean(cat) && findGroup(cat!) < 0))];
+    return [...options, ...ungrouped.sort((a, b) => a.localeCompare(b, 'es')).map(cat => ({ value: EXACT_PREFIX + cat, label: cat }))];
+  }, [products, CATEGORY_GROUPS]);
 
-  // Sidebarr items: pre-computed list with parent/child hierarchy
-  type SidebarItem =
-    | { type: 'parent'; label: string; icon: string; count: number; childLabels: string[] }
-    | { type: 'child'; label: string; icon: string; count: number; gi: number; parentLabel: string }
-    | { type: 'group'; label: string; icon: string; count: number; gi: number };
-
-  const sidebarItems = useMemo((): SidebarItem[] => {
-    const renderedParents = new Set<string>();
-    const items: SidebarItem[] = [];
-    CATEGORY_GROUPS.forEach((group, gi) => {
-      const parentCfg = SIDEBAR_PARENTS.find(p => p.childLabels.includes(group.label));
-      if (parentCfg) {
-        if (!renderedParents.has(parentCfg.label)) {
-          renderedParents.add(parentCfg.label);
-          const childIndices = parentCfg.childLabels
-            .map(lbl => CATEGORY_GROUPS.findIndex(g => g.label === lbl))
-            .filter(i => i >= 0);
-          const parentCount = childIndices.reduce((sum, i) => sum + (countByGroup[i] ?? 0), 0);
-          if (parentCount > 0) {
-            items.push({ type: 'parent', label: parentCfg.label, icon: parentCfg.icon, count: parentCount, childLabels: parentCfg.childLabels });
-          }
-        }
-        const count = countByGroup[gi] ?? 0;
-        if (count > 0) {
-          items.push({ type: 'child', label: group.label, icon: group.icon, count, gi, parentLabel: parentCfg.label });
-        }
-      } else {
-        const count = countByGroup[gi] ?? 0;
-        if (count > 0) {
-          items.push({ type: 'group', label: group.label, icon: group.icon, count, gi });
-        }
-      }
-    });
-    return items;
-  }, [CATEGORY_GROUPS, countByGroup]);
-
-  // Subcategorías reales por grupo (categorías exactas de los productos, agrupadas y contadas)
-  const subsByGroup = useMemo(() => {
-    const result = new Map<number, Array<{ cat: string; count: number }>>();
-    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean);
-    for (const p of products) {
-      if (!p.category) continue;
-      if (selectedBrands.size > 0 && (!p.brand || !includesBrand(selectedBrands, p.brand))) continue;
-      if (terms.length > 0) {
-        const hay = normalize(`${p.name} ${p.code} ${p.brand ?? ''} ${p.category ?? ''}`);
-        if (!terms.every((t) => hay.includes(t))) continue;
-      }
-      const gi = findGroup(p.category);
-      if (gi < 0) continue;
-      if (!result.has(gi)) result.set(gi, []);
-      const arr = result.get(gi)!;
-      const existing = arr.find(x => normalize(x.cat) === normalize(p.category!));
-      if (existing) { existing.count++; } else { arr.push({ cat: p.category, count: 1 }); }
-    }
-    result.forEach((items) => items.sort((a, b) => a.cat.localeCompare(b.cat, 'es')));
-    return result;
-  }, [products, selectedBrands, query, CATEGORY_GROUPS]);
+  const matchesCategory = (product: Product) => {
+    if (category === ALL) return true;
+    if (category.startsWith(EXACT_PREFIX)) return normalize(product.category ?? '') === normalize(category.slice(EXACT_PREFIX.length));
+    const parent = SIDEBAR_PARENTS.find(p => p.label === category);
+    const index = findGroup(product.category ?? '');
+    if (parent) return parent.childLabels.some(label => normalize(CATEGORY_GROUPS[index]?.label ?? '') === normalize(label));
+    const target = findGroup(category);
+    return target >= 0 ? index === target : normalize(product.category ?? '') === normalize(category);
+  };
+  const exactCategories = [...new Set(products.map(p => p.category).filter((cat): cat is string => Boolean(cat)))].sort((a, b) => a.localeCompare(b, 'es'));
 
   // Filtrado: soporta filtro por grupo, por grupo padre, y por categoría exacta (EXACT_PREFIX)
   const filtered = useMemo(() => {
@@ -261,513 +203,115 @@ export default function Productos() {
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background pt-20 sm:pt-28">
       <Header />
+      <nav aria-label="Categorías de la tienda" className="border-b border-primary/20 bg-primary/10">
+        <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto px-4 sm:px-6 lg:px-8 py-2">
+          {[{ value: ALL, label: 'Todos los productos' }, ...categoryOptions].map(option => {
+            const active = category === option.value || (!category.startsWith(EXACT_PREFIX) && category !== ALL && findGroup(category) >= 0 && findGroup(category) === findGroup(option.value));
+            return <button key={option.value} type="button" aria-pressed={active}
+              onClick={() => setCategory(option.value)}
+              className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${active ? 'bg-primary text-white' : 'text-[hsl(var(--text-main))] hover:bg-primary/10'}`}>
+              {option.label}
+            </button>;
+          })}
+        </div>
+      </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-24">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-[hsl(var(--text-soft))] hover:text-primary transition-colors mb-6"
-        >
-          <ArrowLeft className="h-4 w-4" /> Volver al inicio
-        </Link>
-
-        <div className="flex flex-col gap-2 mb-6">
-          <h1 className="text-4xl font-extrabold text-[hsl(var(--text-main))]">Tienda</h1>
-          <p className="text-[hsl(var(--text-soft))]">
-            {loadError ? 'Catálogo temporalmente no disponible' : loading
-              ? 'Cargando...'
-              : `${filtered.length} producto${filtered.length !== 1 ? 's' : ''}`}
-            {hasFilters && (
-              <button onClick={resetFilters} className="ml-3 text-primary text-sm hover:underline">
-                Limpiar filtros
-              </button>
-            )}
-          </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-[hsl(var(--text-soft))] hover:text-primary mb-4"><ArrowLeft className="h-4 w-4" />Volver al inicio</Link>
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold">Tienda</h1>
+            <p role="status" className="text-sm text-[hsl(var(--text-soft))] mt-1">
+              {loadError ? 'Catálogo temporalmente no disponible' : loading ? 'Cargando...' : `${filtered.length} producto${filtered.length === 1 ? '' : 's'}`}
+            </p>
+          </div>
+          {hasFilters && <button type="button" onClick={resetFilters} className="text-primary text-sm hover:underline py-2">Limpiar filtros</button>}
         </div>
 
-        {/* ─── BARRA MOBILE (solo visible en < lg) ──────────────────────────── */}
-        <div className="grid grid-cols-2 lg:hidden gap-2 mb-4">
-          <div className="relative col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Buscar en la tienda por producto, marca o código"
-              placeholder="Producto, marca o código..."
-              className="shop-search w-full h-11 pl-10 pr-10 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
-            />
-            {query && (
-              <button type="button" aria-label="Limpiar búsqueda" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="h-4 w-4 text-[hsl(var(--text-soft))]" />
-              </button>
-            )}
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 mb-4">
+          <div className="relative col-span-2 sm:flex-1">
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
+            <input type="search" value={query} onChange={e => setQuery(e.target.value)}
+              aria-label="Buscar en la tienda por producto, marca o código" placeholder="Producto, marca o código..."
+              className="shop-search w-full h-11 pl-10 pr-10 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+            {query && <button type="button" aria-label="Limpiar búsqueda" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="h-4 w-4" /></button>}
           </div>
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="relative h-11 px-3.5 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-[hsl(var(--text-main))] flex items-center gap-1.5 text-sm font-medium shrink-0"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filtros
-            {(selectedBrands.size > 0 || category !== ALL) && (
-              <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
-                {selectedBrands.size + (category !== ALL ? 1 : 0)}
-              </span>
-            )}
+          <button ref={filtersButton} type="button" onClick={() => setDrawerOpen(true)} aria-haspopup="dialog"
+            className="h-11 px-4 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] inline-flex items-center justify-center gap-2 text-sm font-semibold">
+            <SlidersHorizontal className="h-4 w-4" />Filtros
+            {(selectedBrands.size > 0 || category !== ALL) && <span className="rounded-full bg-primary text-white px-2 text-xs">{selectedBrands.size + (category !== ALL ? 1 : 0)}</span>}
           </button>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="h-11 px-3 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40 shrink-0"
-          >
-            <option value="category-asc">Categoría</option>
-            <option value="name-asc">Nombre A→Z</option>
+          <select aria-label="Ordenar productos" value={sortBy} onChange={e => setSortBy(e.target.value as SortOption)}
+            className="h-11 min-w-0 px-3 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm">
+            <option value="category-asc">Por categoría</option><option value="name-asc">Nombre A→Z</option>
           </select>
         </div>
+        {hasFilters && <div aria-label="Filtros activos" className="flex flex-wrap gap-2 mb-5 text-xs">
+          {category !== ALL && <button type="button" onClick={() => setCategory(ALL)} aria-label="Quitar filtro de categoría" className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-3 py-2">{category.startsWith(EXACT_PREFIX) ? category.slice(EXACT_PREFIX.length) : category}<X size={12} /></button>}
+          {[...selectedBrands].map(brand => <button type="button" key={brand} onClick={() => toggleBrand(brand)} aria-label={`Quitar marca ${brand}`} className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-3 py-2">{brand}<X size={12} /></button>)}
+        </div>}
 
-        {/* ─── DRAWER MOBILE ────────────────────────────────────────────────── */}
-        {drawerOpen && (
-          <div className="fixed inset-0 z-[150] lg:hidden flex">
-            {/* Overlay */}
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setDrawerOpen(false)}
-            />
-            {/* Panel */}
-            <div className="relative ml-auto w-72 h-full bg-[hsl(var(--surface-0))] shadow-2xl flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-4 border-b border-[hsl(var(--surface-3))]">
-                <p className="font-bold text-[hsl(var(--text-main))]">Filtros</p>
-                <button
-                  onClick={() => setDrawerOpen(false)}
-                  className="p-1.5 rounded-full hover:bg-[hsl(var(--surface-2))] transition-colors"
-                >
-                  <X className="h-5 w-5 text-[hsl(var(--text-main))]" />
-                </button>
+        <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <SheetContent onCloseAutoFocus={event => { event.preventDefault(); filtersButton.current?.focus(); }} className="w-full sm:max-w-md flex flex-col">
+            <SheetHeader className="text-left"><SheetTitle>Filtros de la tienda</SheetTitle><SheetDescription>Elegí una categoría o las marcas que buscás.</SheetDescription></SheetHeader>
+            <div className="flex-1 overflow-y-auto py-4 space-y-6">
+              <div>
+                <label htmlFor="shop-category" className="block font-semibold text-sm mb-2">Categoría</label>
+                <select id="shop-category" value={category} onChange={e => setCategory(e.target.value)} className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm">
+                  <option value={ALL}>Todas las categorías</option>
+                  <optgroup label="Grupos">
+                    {SIDEBAR_PARENTS.filter(parent => CATEGORY_GROUPS.some(g => parent.childLabels.includes(g.label))).map(parent => <option key={parent.label} value={parent.label}>{parent.label}</option>)}
+                    {categoryOptions.filter(option => !option.value.startsWith(EXACT_PREFIX)).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </optgroup>
+                  <optgroup label="Categorías específicas">{exactCategories.map(cat => <option key={cat} value={EXACT_PREFIX + cat}>{cat}</option>)}</optgroup>
+                  {category !== ALL && !category.startsWith(EXACT_PREFIX) && !categoryOptions.some(option => option.value === category) && !SIDEBAR_PARENTS.some(parent => parent.label === category) && <option value={category}>{category}</option>}
+                </select>
               </div>
-              <div className="overflow-y-auto flex-1 p-4 space-y-4">
-                {/* Categorías en drawer */}
-                <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
-                  </div>
-                  <button
-                    onClick={() => { setCategory(ALL); setDrawerOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 ${category === ALL ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
-                  >
-                    Todas las categorías
-                  </button>
-                  {sidebarItems.map((item) => {
-                    if (item.type === 'parent') {
-                      const isActive = category === item.label;
-                      return (
-                        <button key={`drawer-parent-${item.label}`}
-                          onClick={() => { setCategory(isActive ? ALL : item.label); setDrawerOpen(false); }}
-                          className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 text-left ${isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
-                        >
-                          <span>{item.icon}</span>{item.label}
-                          <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]">{item.count}</span>
-                        </button>
-                      );
-                    }
-                    if (item.type === 'child') {
-                      const isActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
-                      return (
-                        <button key={`drawer-child-${item.label}`}
-                          onClick={() => { setCategory(isActive ? ALL : item.label); setDrawerOpen(false); }}
-                          className={`w-full flex items-center gap-2 pl-9 pr-4 py-2 text-sm transition-colors border-b border-[hsl(var(--surface-3))]/40 text-left ${isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
-                        >
-                          <span>{item.icon}</span>{item.label}
-                          <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]">{item.count}</span>
-                        </button>
-                      );
-                    }
-                    const isActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
-                    return (
-                      <button key={`drawer-group-${item.label}`}
-                        onClick={() => { setCategory(isActive ? ALL : item.label); setDrawerOpen(false); }}
-                        className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 text-left ${isActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
-                      >
-                        <span>{item.icon}</span>{item.label}
-                        <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]">{item.count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Marcas en drawer */}
-                <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Marcas</p>
-                    {selectedBrands.size > 0 && (
-                      <button onClick={() => setSelectedBrands(new Set())} className="text-[10px] text-primary hover:underline font-semibold">Limpiar</button>
-                    )}
-                  </div>
-                  <div className="py-2 max-h-64 overflow-y-auto">
-                    {allBrands.map((b) => {
-                      const checked = includesBrand(selectedBrands, b);
-                      const targetGi = findGroup(category);
-                      const count = products.filter((p) => brandKey(p.brand ?? '') === brandKey(b) && (category === ALL || (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category)))).length;
-                      if (count === 0 && !checked) return null;
-                      return (
-                        <label key={b} className={`flex items-center gap-3 px-4 py-2 cursor-pointer text-sm transition-colors ${checked ? 'bg-primary/10 text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}>
-                          <input type="checkbox" checked={checked} onChange={() => toggleBrand(b)} className="h-3.5 w-3.5 rounded border-[hsl(var(--surface-3))] accent-primary" />
-                          <span className="flex-1 truncate">{b}</span>
-                          {count > 0 && <span className="text-[10px] font-bold text-[hsl(var(--text-soft))]">{count}</span>}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Botón aplicar */}
-              <div className="p-4 border-t border-[hsl(var(--surface-3))]">
-                <button
-                  onClick={() => setDrawerOpen(false)}
-                  className="w-full py-3 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90 transition-colors"
-                >
-                  Ver {filtered.length} producto{filtered.length !== 1 ? 's' : ''}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* ─── SIDEBAR DESKTOP (oculto en mobile) ──────────────────────── */}
-          <aside className="hidden lg:block w-64 shrink-0 space-y-4">
-
-            {/* Búsqueda */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-soft))]" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                aria-label="Buscar en la tienda por producto, marca o código"
-              placeholder="Producto, marca o código..."
-                className="shop-search w-full h-11 pl-10 pr-10 rounded-xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-1))] text-sm text-[hsl(var(--text-main))] placeholder:text-[hsl(var(--text-soft))] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-colors"
-              />
-              {query && (
-                <button type="button" aria-label="Limpiar búsqueda" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <X className="h-4 w-4 text-[hsl(var(--text-soft))]" />
-                </button>
-              )}
-            </div>
-
-            {/* Ordenar (desktop) */}
-            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
-              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center gap-2">
-                <ArrowUpDown className="h-3.5 w-3.5 text-[hsl(var(--text-soft))]" />
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Ordenar</p>
-              </div>
-              {(['category-asc', 'name-asc'] as SortOption[]).map((opt) => {
-                const labels: Record<SortOption, string> = {
-                  'category-asc': 'Categoría',
-                  'name-asc': 'Nombre A→Z',
-                };
-                return (
-                  <button key={opt} onClick={() => setSortBy(opt)}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${sortBy === opt ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
-                  >
-                    {labels[opt]}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
-              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))]">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Categorías</p>
-              </div>
-
-              <button
-                onClick={() => setCategory(ALL)}
-                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors border-b border-[hsl(var(--surface-3))]/40 ${
-                  category === ALL
-                    ? 'text-primary font-semibold bg-primary/10'
-                    : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                }`}
-              >
-                Todas las categorías
-              </button>
-
-              {sidebarItems.map((item) => {
-
-                // ── Herramientas parent row ──
-                if (item.type === 'parent') {
-                  const isActive = category === item.label;
-                  const isExpanded = expandedParents.has(item.label);
-                  return (
-                    <div key={`parent-${item.label}`}>
-                      <div className={`flex items-center border-b border-[hsl(var(--surface-3))]/40 ${isActive ? 'bg-primary/10' : ''}`}>
-                        <button
-                          onClick={() => {
-                            setCategory(isActive ? ALL : item.label);
-                            if (!isExpanded) setExpandedParents(prev => { const n = new Set(prev); n.add(item.label); return n; });
-                          }}
-                          className={`flex-1 flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors text-left ${isActive ? 'text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:text-primary'}`}
-                        >
-                          <span aria-hidden="true">{item.icon}</span>
-                          {item.label}
-                        </button>
-                        <div className="flex items-center gap-1 pr-3">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
-                            {item.count}
-                          </span>
-                          <button onClick={() => setExpandedParents(prev => { const n = new Set(prev); n.has(item.label) ? n.delete(item.label) : n.add(item.label); return n; })} className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors">
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform text-[hsl(var(--text-soft))] ${isExpanded ? 'rotate-180' : ''}`} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // ── Sub-grupo (ej: Herramientas Manuales / Eléctricas) ──
-                if (item.type === 'child') {
-                  if (!expandedParents.has(item.parentLabel)) return null;
-                  const isGroupActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
-                  const isExpanded = expandedGroups.has(item.gi);
-                  const subs = subsByGroup.get(item.gi) ?? [];
-                  return (
-                    <div key={item.label}>
-                      <div className={`flex items-center border-b border-[hsl(var(--surface-3))]/40 ${isGroupActive ? 'bg-primary/10' : ''}`}>
-                        <button
-                          onClick={() => setCategory(isGroupActive ? ALL : item.label)}
-                          className={`flex-1 flex items-center gap-2 pl-9 pr-2 py-2 text-sm transition-colors text-left ${isGroupActive ? 'text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:text-primary'}`}
-                        >
-                          <span aria-hidden="true">{item.icon}</span>
-                          {item.label}
-                        </button>
-                        <div className="flex items-center gap-1 pr-3">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isGroupActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
-                            {item.count}
-                          </span>
-                          {subs.length > 1 && (
-                            <button onClick={() => setExpandedGroups(prev => { const n = new Set(prev); n.has(item.gi) ? n.delete(item.gi) : n.add(item.gi); return n; })} className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors">
-                              <ChevronDown className={`w-3.5 h-3.5 transition-transform text-[hsl(var(--text-soft))] ${isExpanded ? 'rotate-180' : ''}`} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {isExpanded && subs.map(({ cat, count }) => {
-                        const isSubActive = category === EXACT_PREFIX + cat;
-                        return (
-                          <button key={cat} onClick={() => setCategory(isSubActive ? ALL : EXACT_PREFIX + cat)}
-                            className={`w-full flex items-center justify-between pl-14 pr-4 py-1.5 text-xs transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${isSubActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
-                          >
-                            <span className="truncate">{cat}</span>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${isSubActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>{count}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                }
-
-                // ── Grupo estándar (Gases, Soldadura, Fijación, etc.) ──
-                const isGroupActive = !category.startsWith(EXACT_PREFIX) && findGroup(category) === item.gi;
-                const isExpanded = expandedGroups.has(item.gi);
-                const subs = subsByGroup.get(item.gi) ?? [];
-                return (
-                  <div key={item.label}>
-                    <div className={`flex items-center border-b border-[hsl(var(--surface-3))]/40 ${isGroupActive ? 'bg-primary/10' : ''}`}>
-                      <button
-                        onClick={() => setCategory(isGroupActive ? ALL : item.label)}
-                        className={`flex-1 flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors text-left ${isGroupActive ? 'text-primary font-semibold' : 'text-[hsl(var(--text-main))] hover:text-primary'}`}
-                      >
-                        <span aria-hidden="true">{item.icon}</span>
-                        {item.label}
-                      </button>
-                      <div className="flex items-center gap-1 pr-3">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isGroupActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>
-                          {item.count}
-                        </span>
-                        {subs.length > 1 && (
-                          <button onClick={() => setExpandedGroups(prev => { const n = new Set(prev); n.has(item.gi) ? n.delete(item.gi) : n.add(item.gi); return n; })} className="p-0.5 rounded hover:bg-[hsl(var(--surface-3))] transition-colors">
-                            <ChevronDown className={`w-3.5 h-3.5 transition-transform text-[hsl(var(--text-soft))] ${isExpanded ? 'rotate-180' : ''}`} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {isExpanded && subs.map(({ cat, count }) => {
-                      const isSubActive = category === EXACT_PREFIX + cat;
-                      return (
-                        <button key={cat} onClick={() => setCategory(isSubActive ? ALL : EXACT_PREFIX + cat)}
-                          className={`w-full flex items-center justify-between pl-9 pr-4 py-1.5 text-xs transition-colors border-b border-[hsl(var(--surface-3))]/40 last:border-0 ${isSubActive ? 'text-primary font-semibold bg-primary/10' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'}`}
-                        >
-                          <span className="truncate">{cat}</span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${isSubActive ? 'bg-primary/20 text-primary' : 'bg-[hsl(var(--surface-3))] text-[hsl(var(--text-soft))]'}`}>{count}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Marcas */}
-            <div className="bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] overflow-hidden">
-              <div className="px-4 py-3 border-b border-[hsl(var(--surface-3))] flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-soft))]">Marcas</p>
-                {selectedBrands.size > 0 && (
-                  <button
-                    onClick={() => setSelectedBrands(new Set())}
-                    className="text-[10px] text-primary hover:underline font-semibold"
-                  >
-                    Limpiar
-                  </button>
-                )}
-              </div>
-              <div className="py-2 max-h-64 overflow-y-auto">
-                {allBrands.map((b) => {
-                  const checked = includesBrand(selectedBrands, b);
-                  const targetGi = findGroup(category);
-                  const count = products.filter(
-                    (p) => brandKey(p.brand ?? '') === brandKey(b) && (
-                      category === ALL ||
-                      (targetGi >= 0 ? findGroup(p.category || '') === targetGi : normalize(p.category || '') === normalize(category))
-                    ),
-                  ).length;
+              <fieldset>
+                <legend className="font-semibold text-sm mb-2">Marcas</legend>
+                {selectedBrands.size > 0 && <button type="button" onClick={() => setSelectedBrands(new Set())} className="text-primary text-xs mb-2">Limpiar marcas</button>}
+                {allBrands.map(brand => {
+                  const checked = includesBrand(selectedBrands, brand);
+                  const count = products.filter(p => brandKey(p.brand ?? '') === brandKey(brand) && matchesCategory(p)).length;
                   if (count === 0 && !checked) return null;
-                  return (
-                    <label
-                      key={b}
-                      className={`flex items-center gap-3 px-4 py-2 cursor-pointer text-sm transition-colors ${
-                        checked
-                          ? 'bg-primary/10 text-primary font-semibold'
-                          : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--surface-2))]'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleBrand(b)}
-                        className="h-3.5 w-3.5 rounded border-[hsl(var(--surface-3))] accent-primary"
-                      />
-                      <span className="flex-1 truncate">{b}</span>
-                      {count > 0 && (
-                        <span className="text-[10px] font-bold text-[hsl(var(--text-soft))]">{count}</span>
-                      )}
-                    </label>
-                  );
+                  return <label key={brand} className="flex items-center gap-3 py-3 px-2 rounded-lg hover:bg-primary/5 cursor-pointer text-sm">
+                    <input type="checkbox" checked={checked} onChange={() => toggleBrand(brand)} className="h-4 w-4 accent-primary" />
+                    <span className="flex-1">{brand}</span><span className="text-[hsl(var(--text-soft))]">{count}</span>
+                  </label>;
                 })}
-              </div>
+                {allBrands.length === 0 && <p className="text-sm text-[hsl(var(--text-soft))]">No hay marcas disponibles.</p>}
+              </fieldset>
             </div>
-          </aside>
+            <SheetFooter className="flex-col sm:flex-col gap-3 border-t border-border pt-4">
+              <button type="button" onClick={() => setDrawerOpen(false)} className="bg-primary text-white py-3 rounded-xl font-semibold">Ver {filtered.length} {filtered.length === 1 ? 'producto' : 'productos'}</button>
+              <button type="button" onClick={resetFilters} className="text-primary text-sm py-2">Limpiar todos los filtros</button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
 
-          {/* ─── GRID ────────────────────────────────────────────────────── */}
-          <div className="flex-1">
-            {loading ? (
-              <div className="flex items-center justify-center py-32">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
-              </div>
-            ) : loadError ? (
-              <div role="alert" className="py-24 text-center space-y-4">
-                <h2 className="text-xl font-bold">No pudimos cargar la tienda</h2>
-                <p>Intentá de nuevo en unos instantes.</p>
-                <button className="rounded-lg bg-primary text-white px-5 py-3" onClick={() => setRequest(n => n + 1)}>Reintentar</button>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-32 text-center">
-                <SlidersHorizontal className="h-12 w-12 text-[hsl(var(--text-soft))] mb-4" />
-                <h2 className="text-xl font-bold text-[hsl(var(--text-main))]">Sin resultados</h2>
-                <p className="text-[hsl(var(--text-soft))] mt-2">Probá con otros filtros o consultanos directamente.</p>
-                <button
-                  onClick={resetFilters}
-                  className="mt-4 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
-                >
-                  Ver todos
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
-                  {paginatedProducts.map((product, i) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      index={i}
-                      onOpen={() => selectProduct(product)}
-                      cart={cart}
-                    />
-                  ))}
-                </div>
-
-                {/* ─── Paginación ───────────────────────────────────────── */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-1.5 mt-10">
-                    {/* Botón anterior */}
-                    <button
-                      onClick={() => goToPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="h-9 px-3 rounded-xl border border-[hsl(var(--surface-3))] text-sm font-medium text-[hsl(var(--text-main))] hover:border-primary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      ←
-                    </button>
-
-                    {/* Números de página */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                      // Mostrar: primera, última, actual y las 2 adyacentes; el resto como "..."
-                      const isFirst = page === 1;
-                      const isLast = page === totalPages;
-                      const isNearCurrent = Math.abs(page - currentPage) <= 1;
-                      if (!isFirst && !isLast && !isNearCurrent) {
-                        // Mostrar "..." solo una vez entre grupos
-                        const prevPage = page - 1;
-                        const prevIsFirst = prevPage === 1;
-                        const prevIsNearCurrent = Math.abs(prevPage - currentPage) <= 1;
-                        if (!prevIsFirst && !prevIsNearCurrent) return null;
-                        return (
-                          <span key={`ellipsis-${page}`} className="h-9 w-9 flex items-center justify-center text-sm text-[hsl(var(--text-soft))]">
-                            …
-                          </span>
-                        );
-                      }
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => goToPage(page)}
-                          className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-all duration-150 ${
-                            page === currentPage
-                              ? 'bg-primary text-white border-primary shadow-md shadow-primary/30'
-                              : 'border-[hsl(var(--surface-3))] text-[hsl(var(--text-main))] hover:border-primary hover:text-primary'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-
-                    {/* Botón siguiente */}
-                    <button
-                      onClick={() => goToPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="h-9 px-3 rounded-xl border border-[hsl(var(--surface-3))] text-sm font-medium text-[hsl(var(--text-main))] hover:border-primary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      →
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
+        {loading ? <div role="status" className="flex items-center justify-center py-24"><span className="sr-only">Cargando productos</span><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" /></div>
+          : loadError ? <div role="alert" className="py-24 text-center space-y-4"><h2 className="text-xl font-bold">No pudimos cargar la tienda</h2><p>Intentá de nuevo en unos instantes.</p><button type="button" className="rounded-lg bg-primary text-white px-5 py-3" onClick={() => setRequest(n => n + 1)}>Reintentar</button></div>
+          : filtered.length === 0 ? <div className="py-24 text-center"><h2 className="text-xl font-bold">Sin resultados</h2><p className="mt-2 text-[hsl(var(--text-soft))]">Probá con otros filtros o consultanos directamente.</p><button type="button" onClick={resetFilters} className="mt-4 bg-primary text-white px-5 py-3 rounded-xl">Ver todos</button></div>
+          : <>
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 items-stretch">
+              {paginatedProducts.map((product, index) => <ProductCard key={product.id} product={product} index={index} onOpen={() => selectProduct(product)} cart={cart} />)}
+            </div>
+            {totalPages > 1 && <nav aria-label="Páginas de productos" className="flex flex-wrap items-center justify-center gap-2 mt-10">
+              <button type="button" aria-label="Página anterior" onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="h-10 px-3 rounded-xl border border-border disabled:opacity-30">←</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1).map((page, index, pages) => <span key={page} className="inline-flex items-center gap-2">
+                {index > 0 && page - pages[index - 1] > 1 && <span aria-hidden="true">…</span>}
+                <button type="button" aria-label={`Página ${page}`} aria-current={page === currentPage ? 'page' : undefined} onClick={() => goToPage(page)} className={`h-10 w-10 rounded-xl border text-sm font-semibold ${page === currentPage ? 'bg-primary text-white border-primary' : 'border-border hover:text-primary'}`}>{page}</button>
+              </span>)}
+              <button type="button" aria-label="Página siguiente" onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="h-10 px-3 rounded-xl border border-border disabled:opacity-30">→</button>
+            </nav>}
+          </>}
       </div>
-
       <Footer />
-      {!loading && !loadError && productCode && !selected && <div role="status" className="fixed bottom-20 left-4 right-4 z-40 bg-background border rounded-xl p-4 shadow-lg text-center">El producto de este enlace ya no está disponible. <button onClick={() => selectProduct(null)} className="text-primary underline">Seguir en la tienda</button></div>}
+      {!loading && !loadError && productCode && !selected && <div role="status" className="fixed bottom-24 left-4 right-4 z-40 bg-background border rounded-xl p-4 shadow-lg text-center">El producto de este enlace ya no está disponible. <button onClick={() => selectProduct(null)} className="text-primary underline">Seguir en la tienda</button></div>}
       <WhatsAppButton />
-
-      <>
-        {selected && (
-          <ProductModal key={selected.code} product={selected} onClose={() => selectProduct(null)} />
-        )}
-      </>
+      {selected && <ProductModal key={selected.code} product={selected} onClose={() => selectProduct(null)} />}
     </main>
   );
 }
-
-// ─── ProductCard ──────────────────────────────────────────────────────────────
-

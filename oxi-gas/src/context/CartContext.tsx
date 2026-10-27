@@ -1,11 +1,13 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { useQuoteCart, type QuoteCart } from '@/hooks/useQuoteCart';
 
-const CartContext = createContext<QuoteCart | null>(null);
+type CartContextValue = QuoteCart & { isOpen: boolean; setOpen: (open: boolean) => void };
+const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const cart = useQuoteCart();
-  return <CartContext.Provider value={cart}>{children}</CartContext.Provider>;
+  const [isOpen, setOpen] = useState(false);
+  return <CartContext.Provider value={{ ...cart, isOpen, setOpen }}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {

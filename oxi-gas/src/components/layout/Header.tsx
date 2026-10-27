@@ -37,7 +37,6 @@ export function Header() {
   const cart = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const navigateTo = useHashNavigate();
 
   useEffect(() => {
@@ -83,7 +82,7 @@ export function Header() {
             {/* Botón carrito */}
             <button
               type="button"
-              onClick={() => setCartOpen(true)}
+              onClick={() => cart.setOpen(true)}
               className="relative inline-flex items-center gap-2 rounded-lg border border-[hsl(var(--h-border))] bg-[hsl(var(--h-surface))] px-4 py-2 text-[hsl(var(--h-text))] hover:border-primary transition-colors"
               aria-label="Mi cotización"
             >
@@ -105,7 +104,7 @@ export function Header() {
             </Link>
             <button
               type="button"
-              onClick={() => setCartOpen(true)}
+              onClick={() => cart.setOpen(true)}
               className="relative text-[hsl(var(--h-text))] p-1.5 hover:bg-[hsl(var(--h-surface))] rounded-lg transition-colors border border-[hsl(var(--h-border))]"
               aria-label="Mi cotización"
             >
@@ -162,7 +161,7 @@ export function Header() {
         </AnimatePresence>
       </header>
 
-      <QuoteCart cart={cart} open={cartOpen} onOpenChange={setCartOpen} />
+      <QuoteCart cart={cart} open={cart.isOpen} onOpenChange={cart.setOpen} />
     </>
   );
 }

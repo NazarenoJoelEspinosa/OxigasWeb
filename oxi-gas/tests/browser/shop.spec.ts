@@ -8,9 +8,9 @@ test('cantidad permite borrar el 1 y escribir 3 en tarjeta y detalle', async ({ 
   await quantity.pressSequentially('3');
   await expect(quantity).toHaveValue('3');
   await page.getByRole('button', { name: '+ Agregar a cotización', exact: true }).first().click();
-  await page.getByRole('button', { name: 'Mi cotización' }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Mi cotización', exact: true }).filter({ visible: true }).click();
   await expect(page.getByText('Cantidad: 3', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Cotizar 1 producto/ })).toHaveAttribute('href', /Cantidad%3A%203/);
+  await expect(page.getByRole('link', { name: 'Enviar cotización por WhatsApp' })).toHaveAttribute('href', /Cantidad%3A%203/);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Ver Taladro Bosch', exact: true }).click();
   const modalQuantity = page.getByRole('dialog').getByRole('spinbutton', { name: 'Cantidad', exact: true });
@@ -93,7 +93,7 @@ test('carrito dañado se recupera y el producto eliminado se puede quitar', asyn
     { code: 'A', fields: { cantidad: 2 } }, { code: 'DESCONTINUADO', fields: { cantidad: '1' } },
   ])));
   await page.goto('./productos');
-  await page.getByRole('button', { name: 'Mi cotización' }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Mi cotización', exact: true }).filter({ visible: true }).click();
   await expect(page.getByText('El producto DESCONTINUADO ya no está disponible.')).toBeVisible();
   await page.getByRole('button', { name: 'Quitar de la cotización' }).click();
   await expect(page.getByText('El producto DESCONTINUADO ya no está disponible.')).toHaveCount(0);
@@ -154,10 +154,12 @@ test('galería cambia fotos, enlace directo resiste recarga y Escape conserva fi
 
 test('el filtro de marca acepta mayúsculas y se puede desmarcar', async ({ page }) => {
   await page.goto('./productos?marca=BOSCH');
+  await page.getByRole('button', { name: /^Filtros/ }).click();
   const checkbox = page.getByRole('checkbox', { name: /Bosch/ }).filter({ visible: true });
   await expect(checkbox).toBeChecked();
   await expect(page.getByText('Martillo Bremen', { exact: true })).toHaveCount(0);
   await checkbox.uncheck();
+  await page.getByRole('button', { name: 'Ver 2 productos', exact: true }).click();
   await expect(page.getByText('Martillo Bremen', { exact: true })).toBeVisible();
 });
 
@@ -195,5 +197,64 @@ test('marca abreviada B&D coincide con Black & Decker en la portada', async ({ p
   await page.goto('./productos?marca=Black%20%26%20Decker');
   await expect(page.getByText('Taladro B&D', { exact: true })).toBeVisible();
   await expect(page.getByText('Amoladora Black & Decker', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^Filtros/ }).click();
   await expect(page.getByRole('checkbox').filter({ visible: true })).toHaveCount(1);
+});
+
+for (const width of [390, 1440]) {
+  test(`categorías debajo del header y filtros accesibles a ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('./productos');
+    const categories = page.getByRole('navigation', { name: 'Categorías de la tienda' });
+    const manual = categories.getByRole('button', { name: 'Herramientas Manuales', exact: true });
+    await expect(manual).toBeVisible();
+    const headerBox = await page.locator('header').boundingBox();
+    const navBox = await categories.boundingBox();
+    expect(navBox!.y).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 2);
+    expect(navBox!.y - (headerBox!.y + headerBox!.height)).toBeLessThan(3);
+    await manual.click();
+    await expect(manual).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('Martillo Bremen', { exact: true })).toBeVisible();
+    await expect(page.getByText('Taladro Bosch', { exact: true })).toHaveCount(0);
+    const filters = page.getByRole('button', { name: /^Filtros/ });
+    await filters.click();
+    const dialog = page.getByRole('dialog', { name: 'Filtros de la tienda' });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('Categoría', { exact: true }).selectOption('all');
+    await dialog.getByRole('checkbox', { name: /Bosch/ }).check();
+    await dialog.getByRole('button', { name: 'Ver 1 producto', exact: true }).click();
+    await expect(page.getByText('Taladro Bosch', { exact: true })).toBeVisible();
+    await expect(page.getByText('Martillo Bremen', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Quitar marca Bosch', exact: true }).click();
+    await filters.click();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(filters).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `test-results/nueva-tienda-${width}.png`, fullPage: true });
+  });
+}
+
+test('botón flotante conserva la cotización entre páginas y sólo el envío abre WhatsApp', async ({ page }) => {
+  await page.goto('./productos');
+  const help = page.getByRole('link', { name: '¿Necesitás ayuda? Consultar por WhatsApp', exact: true });
+  await expect(help).toBeVisible();
+  await page.getByRole('spinbutton', { name: 'Cantidad de Taladro Bosch', exact: true }).fill('3');
+  await page.getByRole('button', { name: '+ Agregar a cotización', exact: true }).first().click();
+  await expect(help).toHaveCount(0);
+  const floating = page.getByRole('button', { name: 'Ver mi cotización · 1 producto', exact: true });
+  await expect(floating).toBeVisible();
+  await page.getByRole('link', { name: 'OXI-GAS - Inicio', exact: true }).click();
+  await expect(floating).toBeVisible();
+  await floating.click();
+  const quote = page.getByRole('dialog', { name: 'Mi cotización', exact: true });
+  await expect(quote).toBeVisible();
+  await expect(quote.getByText('Cantidad: 3', { exact: true })).toBeVisible();
+  await expect(quote.getByRole('link', { name: 'Enviar cotización por WhatsApp' })).toHaveAttribute('href', /Cantidad%3A%203/);
+  expect(page.context().pages()).toHaveLength(1);
+  await quote.getByRole('button', { name: 'Vaciar lista', exact: true }).click();
+  await expect(quote.getByText('Tu lista está vacía', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(help).toBeVisible();
+  await expect(floating).toHaveCount(0);
 });

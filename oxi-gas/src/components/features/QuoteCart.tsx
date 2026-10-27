@@ -118,8 +118,7 @@ export function QuoteCart({ cart, open, onOpenChange }: QuoteCartProps) {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#25d366] hover:bg-[#25d366]/90 text-white font-bold text-base py-3 px-4 transition-colors"
             >
               <MessageCircle className="w-5 h-5" />
-              Cotizar {enrichedItems.length}{' '}
-              {enrichedItems.length === 1 ? 'producto' : 'productos'} por WhatsApp
+              Enviar cotización por WhatsApp
             </a>
             <button
               type="button"
