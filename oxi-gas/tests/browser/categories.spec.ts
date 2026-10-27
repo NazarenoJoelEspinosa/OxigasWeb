@@ -118,3 +118,38 @@ test('guardar producto envía contenido y clasificación en una sola operación'
   await expect(page.getByRole('button',{name:'Guardar cambios',exact:true})).toHaveCount(0);
   expect(saved).toMatchObject({p_primary:id(4),p_related:[id(5)],p_product:{id:id(100),code:'CODE0',name:'Producto 00'}});
 });
+
+test('desde categorías ve mini productos y quita asociaciones sin borrar el producto', async ({ page }) => {
+  const {products} = await setup(page,true);
+  const changes: Record<string,unknown>[] = [];
+  await page.route('**/rpc/bulk_classify_products', async route => {
+    const body=route.request().postDataJSON(); changes.push(body);
+    const product=products.find(p => p.id === body.p_ids[0])!;
+    product.product_category_links=product.product_category_links.filter(link => !(body.p_set_primary && link.is_primary) && !(body.p_related.includes(link.category_id) && !link.is_primary));
+    if(body.p_set_primary) product.category=null;
+    await route.fulfill({json:1});
+  });
+  await page.goto('./admin/dashboard');
+  await page.getByRole('button',{name:'Categorías',exact:true}).click();
+  await page.getByRole('button',{name:'Ver productos de Soldadura',exact:true}).click();
+  let panel=page.getByRole('dialog');
+  await expect(panel.getByText('Producto 00',{exact:true})).toBeVisible();
+  await expect(panel.getByText('Relacionada: Soldadura',{exact:true})).toBeVisible();
+  page.once('dialog',async dialog => { expect(dialog.message()).toContain('Conservará su categoría principal'); await dialog.accept(); });
+  await panel.getByRole('button',{name:'Quitar CODE0 de esta categoría',exact:true}).click();
+  await expect(panel.getByText('No hay productos para esta selección.',{exact:true})).toBeVisible();
+  expect(changes[0]).toMatchObject({p_ids:[id(100)],p_set_primary:false,p_related:[id(5)],p_mode:'remove'});
+  await panel.getByRole('button',{name:'Cerrar',exact:true}).click();
+  await page.getByRole('button',{name:'Ver productos de Insumos',exact:true}).click();
+  panel=page.getByRole('dialog');
+  await expect(panel.getByText('Producto 00',{exact:true})).toBeVisible();
+  await panel.getByRole('checkbox',{name:'Incluir subcategorías',exact:true}).uncheck();
+  await expect(panel.getByText('No hay productos para esta selección.',{exact:true})).toBeVisible();
+  await panel.getByRole('checkbox',{name:'Incluir subcategorías',exact:true}).check();
+  page.once('dialog',async dialog => { expect(dialog.message()).toContain('Quedará sin categoría principal'); await dialog.accept(); });
+  await panel.getByRole('button',{name:'Quitar CODE0 de esta categoría',exact:true}).click();
+  await expect(panel.getByText('Producto 00',{exact:true})).toHaveCount(0);
+  await expect(panel.getByText('Producto 01',{exact:true})).toBeVisible();
+  expect(changes[1]).toMatchObject({p_ids:[id(100)],p_set_primary:true,p_related:[],p_mode:'remove'});
+  expect(products).toHaveLength(14);
+});

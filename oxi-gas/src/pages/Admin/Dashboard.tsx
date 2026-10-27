@@ -297,7 +297,7 @@ function DashboardContent() {
           )}
 
           {/* ── TAB: Categorías ── */}
-          {tab === 'categorias' && (taxonomyStatus === 'ready' && !usingFallback ? <TaxonomyAdmin categories={taxonomy} products={productos} onChanged={async () => { await reloadTaxonomy(); await cargarProductos(); }} /> : <p role="alert">No se cargaron las categorías. <button onClick={() => void reloadTaxonomy()} className="text-primary underline">Reintentar categorías</button></p>)}
+          {tab === 'categorias' && (!usingFallback && taxonomy.some(cat => cat.id) ? <TaxonomyAdmin categories={taxonomy} products={productos} onChanged={async () => { await reloadTaxonomy(); await cargarProductos(); }} /> : <p role="alert">No se cargaron las categorías. <button onClick={() => void reloadTaxonomy()} className="text-primary underline">Reintentar categorías</button></p>)}
 
           {/* ── TAB: Ofertas ── */}
           {tab === 'ofertas' && <OffersAdmin />}
