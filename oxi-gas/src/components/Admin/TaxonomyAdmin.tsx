@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { categoryBranch, categoryPath, orderedCategories } from '@/lib/categories';
+import { categoryBranch, categoryKey, categoryPath, orderedCategories, primaryCategoryPath } from '@/lib/categories';
 import { errorMessage, type Product } from '@/lib/models';
 import type { CategoryGroup } from '@/hooks/useCategoryGroups';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -18,12 +18,36 @@ export default function TaxonomyAdmin({ categories, products, onChanged }: {
   const [viewing, setViewing] = useState<string | null>(null);
   const [includeChildren, setIncludeChildren] = useState(true);
   const [productSearch, setProductSearch] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addMode, setAddMode] = useState<'related' | 'primary'>('related');
+  const [addSearch, setAddSearch] = useState('');
+  const [addSelection, setAddSelection] = useState<Set<string>>(new Set());
   const viewingTrigger = useRef<HTMLButtonElement | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const viewedCategory = categories.find(cat => cat.id === viewing);
   const branch = viewing ? includeChildren ? categoryBranch(viewing, categories) : new Set([viewing]) : new Set<string>();
   const categoryProducts = products.filter(product => product.product_category_links.some(link => branch.has(link.category_id)));
   const miniProducts = categoryProducts.filter(product => `${product.name} ${product.code} ${product.brand ?? ''}`.toLocaleLowerCase('es').includes(productSearch.toLocaleLowerCase('es')));
+  const candidates = products.filter(product => !product.product_category_links.some(link => link.category_id === viewing && (addMode === 'related' || link.is_primary)));
+  const matchingCandidates = candidates.filter(product => categoryKey(`${product.name} ${product.code} ${product.brand ?? ''}`).includes(categoryKey(addSearch)));
+  const startAdding = () => { setAdding(true); setAddMode('related'); setAddSearch(''); setAddSelection(new Set()); setMessage(''); };
+  const addProducts = async () => {
+    if (busy || !viewing || addSelection.size === 0 || addSelection.size > 500) return;
+    const selected = products.filter(product => addSelection.has(product.id));
+    if (!window.confirm(`Agregar ${selected.length} productos a ${categoryPath(viewing, categories)}:\n${selected.map(product => product.code + ' · ' + product.name).join('\n')}\n\n${addMode === 'primary' ? 'Esta será su categoría principal y reemplazará la anterior. Las otras secciones se conservan.' : 'Se agregará como sección relacionada. Las categorías principales se conservan.'}`)) return;
+    setBusy(true); setMessage('');
+    try {
+      const { data, error } = await supabase.rpc('bulk_classify_products', {
+        p_ids: [...addSelection], p_primary: addMode === 'primary' ? viewing : null,
+        p_set_primary: addMode === 'primary', p_related: addMode === 'related' ? [viewing] : [],
+        p_mode: addMode === 'related' ? 'add' : 'keep',
+      });
+      if (error) throw new Error(error.message);
+      if (data !== addSelection.size) throw new Error('No se pudo confirmar el lote completo. Actualizá la lista.');
+      await onChanged(); setAdding(false); setAddSelection(new Set()); setProductSearch('');
+      setMessage(`${data} ${data === 1 ? 'producto agregado' : 'productos agregados'} a la categoría. No se crearon copias.`);
+    } catch (error) { setMessage(errorMessage(error)); } finally { setBusy(false); }
+  };
   const reset = () => { setEditing(null); setLabel(''); setParent(''); setOrder(0); };
   const descendants = editing ? categoryBranch(editing, categories) : new Set<string>();
   const edit = (cat: CategoryGroup) => { setEditing(cat.id!); setLabel(cat.label); setParent(cat.parent_id ?? ''); setOrder(cat.sort_order); nameInput.current?.focus(); };
@@ -83,10 +107,29 @@ export default function TaxonomyAdmin({ categories, products, onChanged }: {
         const count = products.filter(p => p.product_category_links.some(link => ids.has(link.category_id))).length;
         return <tr key={cat.id} className="border-t"><td className="p-3">{categoryPath(cat.id!, categories)}{children > 0 && <span className="block text-xs text-muted-foreground">{children} subcategorías directas</span>}</td><td className="p-3">{cat.sort_order}</td><td className="p-3">{direct.filter(link => link.is_primary).length} / {direct.filter(link => !link.is_primary).length}</td><td className="p-3 whitespace-nowrap"><button type="button" disabled={busy} aria-label={`Ver productos de ${categoryPath(cat.id!, categories)}`} onClick={event => { viewingTrigger.current = event.currentTarget; setViewing(cat.id!); setIncludeChildren(true); setProductSearch(''); setMessage(''); }} className="text-primary mr-4">Ver productos ({count})</button><button type="button" disabled={busy} onClick={() => edit(cat)} className="text-primary mr-4">Editar</button><button type="button" disabled={busy || children > 0 || direct.length > 0} title={children || direct.length ? 'Mové primero los productos y subcategorías' : 'Eliminar categoría vacía'} onClick={() => void remove(cat)} className="text-destructive disabled:opacity-30">Eliminar</button></td></tr>;
       })}</tbody></table></div>
-    <Sheet open={Boolean(viewedCategory)} onOpenChange={open => { if (!open) setViewing(null); }}>
+    <Sheet open={Boolean(viewedCategory)} onOpenChange={open => { if (!open) { setViewing(null); setAdding(false); setAddSelection(new Set()); } }}>
     {viewedCategory && <SheetContent onCloseAutoFocus={event => { event.preventDefault(); viewingTrigger.current?.focus(); }} className="w-full sm:max-w-2xl flex flex-col gap-3">
-      <SheetHeader className="text-left pr-5"><SheetTitle>Productos de {categoryPath(viewedCategory.id!, categories)} ({categoryProducts.length})</SheetTitle><SheetDescription>Revisá los productos y quitá las asociaciones que no correspondan.</SheetDescription></SheetHeader>
+      <SheetHeader className="text-left pr-5"><SheetTitle>Productos de {categoryPath(viewedCategory.id!, categories)} ({categoryProducts.length})</SheetTitle><SheetDescription>Agregá productos del catálogo o quitá las asociaciones que no correspondan.</SheetDescription></SheetHeader>
       {message && <p role="status" className="text-sm border rounded p-2">{message}</p>}
+      {adding ? <section aria-label="Agregar productos a la categoría" className="flex-1 min-h-0 flex flex-col gap-3">
+        <h3 className="font-semibold text-sm">Agregar productos existentes</h3>
+        <label className="text-sm">Cómo agregarlos<select aria-label="Tipo de asociación al agregar" value={addMode} disabled={busy} onChange={event => { setAddMode(event.target.value as 'related' | 'primary'); setAddSelection(new Set()); }} className="block w-full border rounded p-2 bg-background mt-1">
+          <option value="related">Como sección relacionada (conservar principal)</option>
+          <option value="primary">Como categoría principal (reemplazar anterior)</option>
+        </select></label>
+        <input type="search" aria-label="Buscar productos para agregar" value={addSearch} disabled={busy} onChange={event => setAddSearch(event.target.value)} placeholder="Nombre, código o marca…" className="w-full border rounded p-2 text-sm" />
+        <div className="flex flex-wrap gap-3 text-xs items-center"><strong>{addSelection.size} seleccionados</strong><button type="button" disabled={busy || matchingCandidates.length > 500} onClick={() => setAddSelection(new Set(matchingCandidates.map(product => product.id)))} className="text-primary disabled:opacity-40">Seleccionar resultados ({matchingCandidates.length})</button><button type="button" disabled={busy} onClick={() => setAddSelection(new Set())} className="text-primary">Quitar selección</button></div>
+        <ul className="flex-1 min-h-0 overflow-y-auto divide-y">{matchingCandidates.map(product => <li key={product.id}>
+          <label className="flex items-center gap-3 py-3 cursor-pointer">
+            <input type="checkbox" aria-label={`Agregar ${product.code}`} disabled={busy} checked={addSelection.has(product.id)} onChange={event => setAddSelection(current => { const next = new Set(current); if (event.target.checked) next.add(product.id); else next.delete(product.id); return next; })} />
+            {product.images[0] && <img src={product.images[0]} alt="" className="w-10 h-10 object-contain rounded border" />}
+            <span className="min-w-0"><span className="block text-sm font-semibold">{product.name}</span><span className="block text-xs text-muted-foreground">{product.code} · {product.brand || 'Sin marca'}{product.visible ? '' : ' · Oculto'}</span><span className="block text-xs">Principal: {primaryCategoryPath(product, categories)}</span></span>
+          </label>
+        </li>)}</ul>
+        {matchingCandidates.length === 0 && <p className="text-sm text-muted-foreground">No hay productos disponibles para esta búsqueda y tipo de asociación.</p>}
+        <div className="flex flex-wrap gap-3 border-t pt-3"><button type="button" disabled={busy || addSelection.size === 0 || addSelection.size > 500} onClick={() => void addProducts()} className="bg-primary text-white rounded px-4 py-2 text-sm disabled:opacity-40">{busy ? 'Agregando…' : `Agregar ${addSelection.size} ${addSelection.size === 1 ? 'producto' : 'productos'}`}</button><button type="button" disabled={busy} onClick={() => { setAdding(false); setAddSelection(new Set()); setMessage(''); }} className="text-sm">Cancelar agregado</button></div>
+      </section> : <>
+      <button type="button" disabled={busy} onClick={startAdding} className="self-start bg-primary text-white rounded px-4 py-2 text-sm disabled:opacity-40">Agregar productos</button>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={includeChildren} onChange={e => setIncludeChildren(e.target.checked)} />Incluir subcategorías</label>
       <p className="text-xs text-muted-foreground">Cada producto aparece una vez. Quitar elimina sus asociaciones dentro de esta sección{includeChildren ? ' y sus subcategorías' : ''}; conserva el producto y las otras secciones.</p>
       <input type="search" aria-label="Buscar dentro de esta categoría" value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Nombre, código o marca…" className="w-full border rounded p-2 text-sm" />
@@ -98,6 +141,7 @@ export default function TaxonomyAdmin({ categories, products, onChanged }: {
         <button type="button" disabled={busy} aria-label={`Quitar ${product.code} de esta categoría`} onClick={() => void removeProduct(product)} className="text-destructive text-xs border rounded px-3 py-2 disabled:opacity-40">Quitar de esta categoría</button>
       </li>)}</ul>
       {miniProducts.length === 0 && <p className="text-sm text-muted-foreground">No hay productos para esta selección.</p>}
+      </>}
     </SheetContent>}
     </Sheet>
   </section>;

@@ -201,3 +201,61 @@ test('desde categorías ve mini productos y quita asociaciones sin borrar el pro
   expect(changes[1]).toMatchObject({p_ids:[id(100)],p_set_primary:true,p_related:[],p_mode:'remove'});
   expect(products).toHaveLength(14);
 });
+
+for (const mode of ['related','primary'] as const) {
+  test(`desde categoría agrega productos como ${mode} sin duplicarlos`, async ({ page }) => {
+    const {products}=await setup(page,true);
+    let saved: Record<string,unknown> | undefined;
+    await page.route('**/rpc/bulk_classify_products',async route => {
+      saved=route.request().postDataJSON();
+      for(const product of products.filter(p => (saved!.p_ids as string[]).includes(p.id))) {
+        if(mode === 'primary') {
+          product.product_category_links=product.product_category_links.filter(link => !link.is_primary && link.category_id !== id(5));
+          product.product_category_links.push({category_id:id(5),is_primary:true}); product.category='Soldadura';
+        } else product.product_category_links.push({category_id:id(5),is_primary:false});
+      }
+      await route.fulfill({json:2});
+    });
+    await page.goto('./admin/dashboard');
+    await page.getByRole('button',{name:'Categorías',exact:true}).click();
+    await page.getByRole('button',{name:'Ver productos de Soldadura',exact:true}).click();
+    const panel=page.getByRole('dialog');
+    await panel.getByRole('button',{name:'Agregar productos',exact:true}).click();
+    await panel.getByLabel('Tipo de asociación al agregar').selectOption(mode);
+    await expect(panel.getByRole('checkbox',{name:'Agregar CODE0',exact:true})).toHaveCount(mode === 'related' ? 0 : 1);
+    const search=panel.getByRole('searchbox',{name:'Buscar productos para agregar',exact:true});
+    await search.fill('CODE1');
+    await panel.getByRole('checkbox',{name:'Agregar CODE1',exact:true}).check();
+    await search.fill('CODE13');
+    await panel.getByRole('checkbox',{name:'Agregar CODE13',exact:true}).check();
+    await expect(panel.getByText('2 seleccionados',{exact:true})).toBeVisible();
+    page.once('dialog',async dialog => {
+      expect(dialog.message()).toContain(mode === 'related' ? 'Las categorías principales se conservan' : 'reemplazará la anterior');
+      await dialog.accept();
+    });
+    await panel.getByRole('button',{name:'Agregar 2 productos',exact:true}).click();
+    await expect(panel.getByText('2 productos agregados a la categoría. No se crearon copias.',{exact:true})).toBeVisible();
+    await expect(panel.getByText('Producto 01',{exact:true})).toBeVisible();
+    await expect(panel.getByText('Producto 13',{exact:true})).toBeVisible();
+    expect(saved).toMatchObject({p_ids:[id(101),id(113)],p_primary:mode === 'primary' ? id(5) : null,p_set_primary:mode === 'primary',p_related:mode === 'related' ? [id(5)] : [],p_mode:mode === 'related' ? 'add' : 'keep'});
+    expect(products).toHaveLength(14);
+    if(mode === 'related') expect(products[1].product_category_links.find(link => link.is_primary)?.category_id).toBe(id(4));
+    await page.screenshot({path:`test-results/categoria-agregar-${mode}.png`,fullPage:false});
+  });
+}
+
+test('si falla el agregado conserva selección y permite reintentar',async ({page}) => {
+  await setup(page,true);
+  await page.route('**/rpc/bulk_classify_products',route => route.fulfill({status:403,json:{message:'No se pudo guardar el agregado'}}));
+  await page.goto('./admin/dashboard');
+  await page.getByRole('button',{name:'Categorías',exact:true}).click();
+  await page.getByRole('button',{name:'Ver productos de Soldadura',exact:true}).click();
+  const panel=page.getByRole('dialog');
+  await panel.getByRole('button',{name:'Agregar productos',exact:true}).click();
+  await panel.getByRole('checkbox',{name:'Agregar CODE1',exact:true}).check();
+  page.once('dialog',dialog => dialog.accept());
+  await panel.getByRole('button',{name:'Agregar 1 producto',exact:true}).click();
+  await expect(panel.getByText('No se pudo guardar el agregado',{exact:true})).toBeVisible();
+  await expect(panel.getByRole('checkbox',{name:'Agregar CODE1',exact:true})).toBeChecked();
+  await expect(panel.getByRole('button',{name:'Agregar 1 producto',exact:true})).toBeEnabled();
+});
