@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { isMissingTable } from '@/lib/models';
 import { readAllPages } from '@/lib/pagination';
 import { z } from 'zod';
-const groupSchema = z.object({ id: z.string(), label: z.string(), icon: z.string(), slugs: z.array(z.string()), sort_order: z.number() });
+const groupSchema = z.object({ id: z.string(), label: z.string(), icon: z.string(), slugs: z.array(z.string()), sort_order: z.number(), parent_id: z.string().nullable().optional() });
 
 export type CategoryGroup = {
   id?: string;
@@ -13,6 +13,7 @@ export type CategoryGroup = {
   icon: string;
   slugs: string[];
   sort_order: number;
+  parent_id?: string | null;
 };
 
 // Grupos por defecto (se usan si la tabla no existe o está vacía).
@@ -114,7 +115,7 @@ export const DEFAULT_GROUPS: CategoryGroup[] = [
 
 type Status = 'loading' | 'ready' | 'error';
 
-export function useCategoryGroups() {
+export function useCategoryGroups(includeOffers = false) {
   const [groups, setGroups] = useState<CategoryGroup[]>(DEFAULT_GROUPS);
   const [status, setStatus] = useState<Status>('loading');
   const [usingFallback, setUsingFallback] = useState(false);
@@ -131,7 +132,7 @@ export function useCategoryGroups() {
       if (data.length > 0) {
         // Filtrar "Ofertas" por si existe en la DB — tiene su propia sección
         const sinOfertas = (data as CategoryGroup[]).filter(
-          (g) => g.label.toLowerCase() !== 'ofertas'
+          (g) => includeOffers || g.label.toLowerCase() !== 'ofertas'
         );
         setGroups(sinOfertas);
         setUsingFallback(false);
@@ -146,7 +147,7 @@ export function useCategoryGroups() {
       setUsingFallback(true);
       setStatus(isMissingTable(error) ? 'ready' : 'error');
     }
-  }, []);
+  }, [includeOffers]);
 
   useEffect(() => { void load(); return () => current.current?.abort(); }, [load]);
 

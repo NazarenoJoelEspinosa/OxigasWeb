@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { stableCustomFields, errorMessage, type CustomField, type Product } from '@/lib/models';
-import { loadProducts } from '@/lib/catalog';
+import { useCategoryGroups } from '@/hooks/useCategoryGroups';
+import { ClassificationFields } from './ClassificationFields';
 
 export type { CustomField } from '@/lib/models';
 export type Producto = Partial<Product> & Pick<Product, 'code' | 'name'>;
@@ -17,21 +18,12 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   const [nombre, setNombre] = useState(producto?.name ?? '');
   const [descripcion, setDescripcion] = useState(producto?.description ?? '');
   const [marca, setMarca] = useState(producto?.brand ?? '');
-  const [categoria, setCategoria] = useState(producto?.category ?? '');
+  const { groups: taxonomy, status: taxonomyStatus, usingFallback } = useCategoryGroups(true);
+  const [primary, setPrimary] = useState(producto?.product_category_links?.find(link => link.is_primary)?.category_id ?? '');
+  const [related, setRelated] = useState(producto?.product_category_links?.filter(link => !link.is_primary).map(link => link.category_id) ?? []);
+  const categoria = taxonomy.find(cat => cat.id === primary)?.label ?? '';
   const [precio, setPrecio] = useState(producto?.price ?? '');
   const [visible, setVisible] = useState(producto?.visible ?? true);
-  const [categorias, setCategorias] = useState<string[]>([]);
-  const [categoriaPersonalizada, setCategoriaPersonalizada] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    loadProducts(controller.signal, false).then(data => {
-      if (controller.signal.aborted) return;
-      const cats = [...new Set(data.map(p => p.category).filter((v): v is string => Boolean(v)))];
-      setCategorias([...new Set([...cats, 'Ofertas'])].sort());
-    }).catch(() => { if (!controller.signal.aborted) setError('No se pudieron cargar las categorías. Podés escribir una nueva.'); });
-    return () => controller.abort();
-  }, []);
   const [imagenesActuales, setImagenesActuales] = useState<string[]>(
     Array.isArray(producto?.images)
       ? producto.images.filter(
@@ -93,6 +85,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
     let committed = false;
     try {
       if (!codigo.trim() || !nombre.trim()) throw new Error('Completá el código y el nombre.');
+      if (taxonomyStatus !== 'ready' || usingFallback) throw new Error('Esperá a que se carguen las categorías antes de guardar.');
       if (precio !== '' && (!Number.isFinite(Number(precio)) || Number(precio) < 0)) throw new Error('El precio debe ser un número mayor o igual a cero.');
       stableCustomFields(customFields);
       let urlNueva: string | null = null;
@@ -114,13 +107,12 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
         visible: visible,
         images: imagenesFinal, custom_fields: camposLimpios,
       };
-      if (producto?.id) {
-        const { error: e } = await supabase.from('products').update(datos).eq('id', producto.id).select('id').single();
-        if (e) throw new Error('Error al actualizar: ' + e.message);
-      } else {
-        const { error: e } = await supabase.from('products').insert(datos);
-        if (e) throw new Error('Error al crear: ' + e.message);
-      }
+      const { data: savedId, error: saveError } = await supabase.rpc('save_catalog_product', {
+        p_product: { ...datos, ...(producto?.id ? { id: producto.id } : {}) },
+        p_primary: primary || null, p_related: related,
+      });
+      if (saveError) throw new Error('Error al guardar: ' + saveError.message);
+      if (!savedId) throw new Error('No se pudo confirmar el guardado.');
       committed = true;
       alGuardar();
     } catch (err: unknown) {
@@ -187,52 +179,9 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
             </div>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Categoría</label>
-            {!categoriaPersonalizada ? (
-              <div className="flex gap-2">
-                <select
-                  value={categoria}
-                  onChange={(e) => {
-                    if (e.target.value === '__nueva__') {
-                      setCategoriaPersonalizada(true);
-                      setCategoria('');
-                    } else {
-                      setCategoria(e.target.value);
-                    }
-                  }}
-                  className="flex-1 px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-                >
-                  <option value="">Seleccionar categoría...</option>
-                  {categorias.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__nueva__">+ Nueva categoría...</option>
-                </select>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="Ej: herramientas_manuales"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => { setCategoriaPersonalizada(false); setCategoria(''); }}
-                  className="px-3 py-2 border border-input rounded-lg text-sm hover:bg-muted transition-colors"
-                >
-                  ← Volver
-                </button>
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Usá minúsculas y guión bajo. Ej: herramientas_manuales</p>
-          </div>
-        </div>
-
+        <ClassificationFields categories={taxonomy} primary={primary} related={related} onPrimary={setPrimary} onRelated={setRelated} />
+        <p className="text-xs text-muted-foreground">Creá y organizá las categorías desde la pestaña Categorías. Seleccionar una subcategoría incluye automáticamente sus niveles superiores en la tienda.</p>
+        {(taxonomyStatus !== 'ready' || usingFallback) && <p role="alert" className="text-destructive text-sm">No se cargaron las categorías. No guardes hasta recuperar la conexión.</p>}
         {/* Campos variables */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -307,7 +256,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
         </div>
         {error && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={guardando}
+          <button type="submit" disabled={guardando || taxonomyStatus !== 'ready' || usingFallback}
             className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {guardando ? 'Guardando...' : (producto?.id ? 'Guardar cambios' : 'Crear producto')}
           </button>

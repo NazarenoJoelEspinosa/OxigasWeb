@@ -4,7 +4,7 @@ import { readAllPages } from './pagination';
 import type { ProductRow } from './database.types';
 export async function loadProducts(signal?: AbortSignal, publicOnly = true) {
   const rows = await readAllPages<ProductRow>((from, to) => {
-    let q = supabase.from('products').select('*').order('id').range(from, to);
+    let q = supabase.from('products').select('*, product_category_links(category_id,is_primary)').order('id').range(from, to);
     if (publicOnly) q = q.eq('visible', true);
     return signal ? q.abortSignal(signal) : q;
   });

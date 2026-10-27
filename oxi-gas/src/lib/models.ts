@@ -9,6 +9,7 @@ export const productSchema = z.object({
   visible: z.boolean().nullable().optional().transform(v => v === undefined ? true : v === true),
   images: z.array(z.string()).nullable().optional().transform(v => v ?? []),
   custom_fields: z.array(customFieldSchema).nullable().optional().transform(v => v ?? []),
+  product_category_links: z.array(z.object({ category_id: z.string(), is_primary: z.boolean() })).nullable().optional().transform(v => v ?? []),
 });
 export type Product = z.infer<typeof productSchema>;
 export const offerSchema = z.object({

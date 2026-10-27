@@ -4,7 +4,11 @@ import { Link, useLocation } from 'wouter';
 import { loadProducts } from '@/lib/catalog';
 import AuthGuard from '@/components/Admin/AuthGuard';
 import ProductForm, { type Producto } from '@/components/Admin/ProductForm';
-import CategoryGroupsAdmin from '@/components/Admin/CategoryGroupsAdmin';
+import TaxonomyAdmin from '@/components/Admin/TaxonomyAdmin';
+import BulkClassification from '@/components/Admin/BulkClassification';
+import { useCategoryGroups } from '@/hooks/useCategoryGroups';
+import { belongsToCategory, categoryPath, orderedCategories, primaryCategoryPath } from '@/lib/categories';
+import type { Product } from '@/lib/models';
 import OffersAdmin from '@/components/Admin/OffersAdmin';
 
 type Tab = 'productos' | 'categorias' | 'ofertas';
@@ -14,7 +18,11 @@ function DashboardContent() {
   const [tab, setTab] = useState<Tab>('productos');
 
   // ── Productos ──────────────────────────────────────────────────────────────
-  const [productos, setProductos] = useState<Producto[]>([]);
+  const [productos, setProductos] = useState<Product[]>([]);
+  const { groups: taxonomy, status: taxonomyStatus, usingFallback, reload: reloadTaxonomy } = useCategoryGroups(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const toggleSelected = (id: string) => setSelectedIds(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const [cargando, setCargando] = useState(true);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -77,9 +85,9 @@ function DashboardContent() {
 
   const productosFiltrados = productos.filter((p) => {
     const terms = normalize(busqueda).trim().split(/\s+/).filter(Boolean);
-    const haystack = normalize([p.name, p.code, p.brand, p.category].join(' '));
+    const haystack = normalize([p.name, p.code, p.brand, primaryCategoryPath(p, taxonomy), ...p.product_category_links.map(link => categoryPath(link.category_id, taxonomy))].join(' '));
     return terms.every(term => haystack.includes(term)) &&
-      (!categoryFilter || p.category === categoryFilter) &&
+      (!categoryFilter || (categoryFilter === '__unclassified__' ? !p.product_category_links.some(link => link.is_primary) : categoryFilter.startsWith('node:') ? belongsToCategory(p, categoryFilter.slice(5), taxonomy, true) : p.category === categoryFilter)) &&
       (visibility === 'all' || (visibility === 'visible' ? p.visible === true : p.visible !== true));
   }).sort((a, b) => (order === 'code' ? a.code : a.name).localeCompare(order === 'code' ? b.code : b.name, 'es', { numeric: true }));
   const totalPages = Math.max(1, Math.ceil(productosFiltrados.length / 12));
@@ -200,10 +208,22 @@ function DashboardContent() {
 
               <div className="flex flex-wrap gap-3 mb-4">
                 <label className="text-sm">Estado<select aria-label="Filtrar por estado" value={visibility} onChange={e => setVisibility(e.target.value)} className="block border rounded-lg p-2 bg-background"><option value="all">Todos</option><option value="visible">Visibles</option><option value="hidden">Ocultos</option></select></label>
-                <label className="text-sm">Categoría<select aria-label="Filtrar por categoría" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="block border rounded-lg p-2 bg-background max-w-full"><option value="">Todas</option>{categories.map(cat => <option key={cat}>{cat}</option>)}</select></label>
+                <label className="text-sm">Categoría principal<select aria-label="Filtrar por categoría" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="block border rounded-lg p-2 bg-background max-w-full"><option value="">Todas</option><option value="__unclassified__">Sin clasificar</option>{orderedCategories(taxonomy).filter(cat => cat.id).map(cat => <option key={cat.id} value={`node:${cat.id}`}>{categoryPath(cat.id!, taxonomy)}</option>)}{categories.map(cat => <option key={`legacy-${cat}`} value={cat}>{cat} (texto histórico)</option>)}</select></label>
                 <label className="text-sm">Ordenar<select aria-label="Ordenar productos" value={order} onChange={e => setOrder(e.target.value)} className="block border rounded-lg p-2 bg-background"><option value="name">Nombre</option><option value="code">Código</option></select></label>
                 <button type="button" onClick={clearFilters} className="text-primary text-sm underline self-end py-2">Limpiar filtros</button>
               </div>
+              <div className="border rounded p-3 mb-4 bg-background space-y-2">
+                <div className="flex flex-wrap gap-3 items-center text-sm">
+                  <strong>{selectedIds.size} seleccionados</strong>
+                  <button type="button" disabled={cargando || loadError} onClick={() => setSelectedIds(current => new Set([...current, ...pageProducts.map(p => p.id)]))} className="text-primary">Seleccionar página</button>
+                  <button type="button" disabled={cargando || loadError || productosFiltrados.length > 500} onClick={() => setSelectedIds(new Set(productosFiltrados.map(p => p.id)))} className="text-primary disabled:opacity-40">Seleccionar todos los resultados ({productosFiltrados.length})</button>
+                  <button type="button" onClick={() => { setSelectedIds(new Set()); setBulkOpen(false); }} className="text-primary">Quitar selección</button>
+                  <button type="button" disabled={selectedIds.size === 0 || selectedIds.size > 500 || taxonomyStatus !== 'ready' || usingFallback || loadError} onClick={() => setBulkOpen(true)} className="bg-primary text-white rounded px-3 py-2 disabled:opacity-40">Clasificar selección</button>
+                </div>
+                {selectedIds.size > 0 && <details><summary className="text-sm cursor-pointer">Revisar productos seleccionados (incluye otras páginas y filtros)</summary><ul className="max-h-40 overflow-y-auto text-xs mt-2">{productos.filter(p => selectedIds.has(p.id)).map(p => <li key={p.id}>{p.code} · {p.name}</li>)}</ul></details>}
+                {productosFiltrados.length > 500 && <p className="text-xs">Filtrá el catálogo para trabajar en lotes de hasta 500 productos.</p>}
+              </div>
+              {bulkOpen && selectedIds.size > 0 && <BulkClassification ids={[...selectedIds]} categories={taxonomy} onCancel={() => setBulkOpen(false)} onSaved={async () => { setBulkOpen(false); setSelectedIds(new Set()); await cargarProductos(); mostrarNotificacion('exito', 'Clasificación del lote actualizada.'); }} />}
               {loadError && <div role="alert" className="rounded-xl border p-5 mb-4 bg-background">No pudimos actualizar el catálogo. <button onClick={() => void cargarProductos()} className="text-primary underline">Reintentar</button></div>}
               <div className="bg-background border border-border rounded-xl overflow-hidden">
                 {cargando ? (
@@ -220,14 +240,17 @@ function DashboardContent() {
                 ) : (
                   <><div className="md:hidden divide-y">
                     {pageProducts.map(product => <article key={product.id} className="p-4 space-y-2">
+                      <label className="flex gap-2 text-sm"><input type="checkbox" aria-label={`Seleccionar ${product.code}`} checked={selectedIds.has(product.id)} onChange={() => toggleSelected(product.id)} />Seleccionar</label>
                       <div className="flex gap-3">{product.images?.[0] && <img src={product.images[0]} alt="" className="w-14 h-14 object-contain rounded border" />}<div className="min-w-0"><h3 className="font-semibold break-words">{product.name}</h3><p className="text-xs text-muted-foreground break-all">{product.code} · {product.brand || 'Sin marca'}</p></div></div>
-                      <p className="text-xs text-muted-foreground">{product.category || 'Sin categoría'} · {product.visible === true ? 'Visible' : 'Oculto'}</p>
+                      <p className="text-xs text-muted-foreground">{primaryCategoryPath(product, taxonomy)} · {product.visible === true ? 'Visible' : 'Oculto'}</p>
+                      <p className="text-xs text-muted-foreground">También en: {product.product_category_links.filter(link => !link.is_primary).map(link => categoryPath(link.category_id, taxonomy)).join(', ') || '—'}</p>
                       <div className="flex flex-wrap gap-4"><button onClick={() => handleEditar(product)} className="text-primary text-sm py-2">Editar</button><button disabled={busyId !== null} onClick={() => void toggleVisible(product)} className="text-primary text-sm py-2 disabled:opacity-50">{product.visible === true ? 'Ocultar' : 'Mostrar'}</button><button onClick={() => void handleEliminar(product.id!, product.name)} className="text-destructive text-sm py-2">Eliminar</button></div>
                     </article>)}
                   </div><div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-muted/50 border-b border-border text-left">
+                          <th className="px-3 py-3">Seleccionar</th>
                           <th className="px-4 py-3 font-medium text-muted-foreground">Imagen</th>
                           <th className="px-4 py-3 font-medium text-muted-foreground">Código</th>
                           <th className="px-4 py-3 font-medium text-muted-foreground">Nombre</th>
@@ -239,6 +262,7 @@ function DashboardContent() {
                       <tbody className="divide-y divide-border">
                         {pageProducts.map((producto) => (
                           <tr key={producto.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="px-3 py-3"><input type="checkbox" aria-label={`Seleccionar ${producto.code}`} checked={selectedIds.has(producto.id)} onChange={() => toggleSelected(producto.id)} /></td>
                             <td className="px-4 py-3">
                               {producto.images?.[0] ? (
                                 <img src={producto.images[0]} alt={producto.name}
@@ -251,9 +275,8 @@ function DashboardContent() {
                             <td className="px-4 py-3 font-medium">{producto.name}<span className={`block text-xs mt-1 ${producto.visible === true ? 'text-green-700' : 'text-muted-foreground'}`}>{producto.visible === true ? 'Visible' : 'Oculto'}</span></td>
                             <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{producto.brand || '—'}</td>
                             <td className="px-4 py-3 hidden lg:table-cell">
-                              {producto.category
-                                ? <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary">{producto.category}</span>
-                                : '—'}
+                              <span className="text-xs">{primaryCategoryPath(producto, taxonomy)}</span>
+                              <span className="block text-xs text-muted-foreground">También en: {producto.product_category_links.filter(link => !link.is_primary).map(link => categoryPath(link.category_id, taxonomy)).join(', ') || '—'}</span>
                             </td>
                             <td className="px-4 py-3 text-right">
                               <button onClick={() => handleEditar(producto)}
@@ -274,7 +297,7 @@ function DashboardContent() {
           )}
 
           {/* ── TAB: Categorías ── */}
-          {tab === 'categorias' && <CategoryGroupsAdmin />}
+          {tab === 'categorias' && (taxonomyStatus === 'ready' && !usingFallback ? <TaxonomyAdmin categories={taxonomy} products={productos} onChanged={async () => { await reloadTaxonomy(); await cargarProductos(); }} /> : <p role="alert">No se cargaron las categorías. <button onClick={() => void reloadTaxonomy()} className="text-primary underline">Reintentar categorías</button></p>)}
 
           {/* ── TAB: Ofertas ── */}
           {tab === 'ofertas' && <OffersAdmin />}
