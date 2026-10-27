@@ -11,7 +11,7 @@ const trustBadges = [
 
 const zonas = [
   'Caseros', 'Ramos Mejía', 'Castelar', 'Morón',
-  'San Justo', 'Villa Lugano', 'y zonas cercanas',
+  'Ciudadela', 'y zonas cercanas',
 ];
 
 export function Hero() {
@@ -165,3 +165,4 @@ export function Hero() {
     </section>
   );
 }
+
