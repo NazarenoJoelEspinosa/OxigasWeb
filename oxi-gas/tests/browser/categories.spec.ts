@@ -50,6 +50,54 @@ test('tienda muestra descendientes y productos relacionados sin duplicarlos', as
   await expect(page.getByRole('checkbox',{name:/Bosch/})).toHaveAccessibleName('Bosch 1');
 });
 
+test('menú de categorías por columnas: hover, teclado, cierre y filtros sólo principales', async ({ page }) => {
+  await page.setViewportSize({width:1440,height:950});
+  await setup(page);
+  await page.goto('./productos');
+  const nav=page.getByRole('navigation',{name:'Categorías de la tienda'});
+  const supplies=nav.getByRole('button',{name:'Insumos',exact:true});
+  await expect(nav.getByRole('button',{name:'Corte',exact:true})).toHaveCount(0);
+  await supplies.hover();
+  const panel=page.getByRole('region',{name:'Subcategorías de Insumos',exact:true});
+  await expect(panel).toBeVisible();
+  await expect(supplies).toHaveAttribute('aria-pressed','false');
+  await panel.getByRole('button',{name:'Discos',exact:true}).hover();
+  await expect(panel.getByRole('button',{name:'Corte',exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/categorias-menu-columnas.png',fullPage:false});
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(supplies).toBeFocused();
+  await supplies.press('ArrowDown');
+  await expect(panel.getByRole('button',{name:'Cerrar categorías',exact:true})).toBeFocused();
+  await page.getByRole('heading',{name:'Tienda',exact:true}).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole('button',{name:/^Filtros/}).click();
+  const category=page.getByRole('dialog').getByLabel('Categoría',{exact:true});
+  await expect(category.getByRole('option')).toHaveCount(4);
+  await expect(category.getByRole('option',{name:'Corte',exact:true})).toHaveCount(0);
+  await expect(category.getByRole('option',{name:'Insumos',exact:true})).toHaveCount(1);
+});
+
+test('celular recorre un nivel por vez sin lista larga ni desborde', async ({ page }) => {
+  await page.setViewportSize({width:390,height:844});
+  await setup(page);
+  await page.goto('./productos');
+  const nav=page.getByRole('navigation',{name:'Categorías de la tienda'});
+  await nav.getByRole('button',{name:'Insumos',exact:true}).click();
+  const panel=page.getByRole('region',{name:'Subcategorías de Insumos',exact:true});
+  await panel.getByRole('button',{name:'Discos',exact:true}).click();
+  await expect(panel.getByRole('button',{name:'Corte',exact:true})).toBeVisible();
+  await expect(panel.getByRole('button',{name:'Discos',exact:true})).toBeHidden();
+  await panel.getByRole('button',{name:'← Volver',exact:true}).click();
+  await expect(panel.getByRole('button',{name:'Discos',exact:true})).toBeVisible();
+  await panel.getByRole('button',{name:'Discos',exact:true}).click();
+  await panel.getByRole('button',{name:'Corte',exact:true}).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Ver Producto 00',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Ver Producto 01',exact:true})).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('administración crea, renombra y mueve una subcategoría', async ({ page }) => {
   const {categories} = await setup(page,true);
   const writes: Record<string,unknown>[] = [];

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import { ProductCard } from '@/components/features/ProductCard';
 import { ProductModal } from '@/components/features/ProductModal';
+import { CategoryNavigation } from '@/components/features/CategoryNavigation';
 import {
   ArrowLeft, Search, SlidersHorizontal,
   X,
@@ -13,7 +14,7 @@ import { useCart } from '@/context/CartContext';
 import { loadShopProducts } from '@/lib/catalog';
 import type { Product } from '@/lib/models';
 import { useCategoryGroups } from '@/hooks/useCategoryGroups';
-import { belongsToCategory, categoryBranch, categoryPath, orderedCategories } from '@/lib/categories';
+import { belongsToCategory, categoryBranch, categoryPath } from '@/lib/categories';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -128,8 +129,8 @@ export default function Productos() {
     return target >= 0 ? index === target : normalize(product.category ?? '') === normalize(category);
   };
   const selectedNode = category.startsWith('__node__') ? CATEGORY_GROUPS.find(cat => cat.id === category.slice(8)) : undefined;
-  const childCategories = selectedNode ? CATEGORY_GROUPS.filter(cat => cat.parent_id === selectedNode.id && products.some(p => belongsToCategory(p, cat.id!, CATEGORY_GROUPS))) : [];
-  const exactCategories = [...new Set(products.map(p => p.category).filter((cat): cat is string => Boolean(cat)))].sort((a, b) => a.localeCompare(b, 'es'));
+  const navigationCategories = CATEGORY_GROUPS.filter(cat => cat.id && products.some(p => belongsToCategory(p, cat.id!, CATEGORY_GROUPS)));
+  const selectedRootValue = categoryOptions.find(option => option.value === category || (selectedNode && option.value.startsWith('__node__') && categoryBranch(option.value.slice(8), CATEGORY_GROUPS).has(selectedNode.id!)))?.value ?? ALL;
 
   // Filtrado: soporta filtro por grupo, por grupo padre, y por categoría exacta (EXACT_PREFIX)
   const filtered = useMemo(() => {
@@ -190,26 +191,7 @@ export default function Productos() {
   return (
     <main className="min-h-screen bg-background pt-20 sm:pt-28">
       <Header />
-      <nav aria-label="Categorías de la tienda" className="border-b border-primary/20 bg-primary/10">
-        <div className="max-w-7xl mx-auto flex gap-1 overflow-x-auto px-4 sm:px-6 lg:px-8 py-2">
-          {[{ value: ALL, label: 'Todos los productos' }, ...categoryOptions].map(option => {
-            const active = category === option.value || (selectedNode && option.value.startsWith('__node__') && categoryBranch(option.value.slice(8), CATEGORY_GROUPS).has(selectedNode.id!));
-            return <button key={option.value} type="button" aria-pressed={active}
-              onClick={() => setCategory(option.value)}
-              className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${active ? 'bg-primary text-white' : 'text-[hsl(var(--text-main))] hover:bg-primary/10'}`}>
-              {option.label}
-            </button>;
-          })}
-        </div>
-      </nav>
-
-      {selectedNode && <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 space-y-2">
-        <p className="text-sm font-semibold">{categoryPath(selectedNode.id!, CATEGORY_GROUPS)}</p>
-        <div className="flex gap-2 overflow-x-auto pb-2" aria-label="Subcategorías">
-          <button type="button" onClick={() => setCategory(selectedNode.parent_id ? '__node__' + selectedNode.parent_id : ALL)} className="shrink-0 border rounded-lg px-3 py-2 text-sm">← {selectedNode.parent_id ? 'Categoría superior' : 'Todas las categorías'}</button>
-          {childCategories.map(cat => <button type="button" key={cat.id} onClick={() => setCategory('__node__' + cat.id)} className="shrink-0 border border-primary/30 text-primary rounded-lg px-3 py-2 text-sm">{cat.label}</button>)}
-        </div>
-      </div>}
+      <CategoryNavigation options={categoryOptions} categories={navigationCategories} value={category} onChange={setCategory} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28">
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-[hsl(var(--text-soft))] hover:text-primary mb-4"><ArrowLeft className="h-4 w-4" />Volver al inicio</Link>
@@ -252,16 +234,11 @@ export default function Productos() {
             <div className="flex-1 overflow-y-auto py-4 space-y-6">
               <div>
                 <label htmlFor="shop-category" className="block font-semibold text-sm mb-2">Categoría</label>
-                <select id="shop-category" value={category} onChange={e => setCategory(e.target.value)} className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm">
+                <select id="shop-category" value={selectedRootValue} onChange={e => setCategory(e.target.value)} className="w-full h-11 rounded-xl border border-border bg-background px-3 text-sm">
                   <option value={ALL}>Todas las categorías</option>
-                  <optgroup label="Grupos">
-                    {SIDEBAR_PARENTS.filter(parent => CATEGORY_GROUPS.some(g => parent.childLabels.includes(g.label))).map(parent => <option key={parent.label} value={parent.label}>{parent.label}</option>)}
-                    {categoryOptions.filter(option => !option.value.startsWith(EXACT_PREFIX)).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </optgroup>
-                  <optgroup label="Categorías y subcategorías">{orderedCategories(CATEGORY_GROUPS).filter(cat => cat.id).map(cat => <option key={cat.id} value={'__node__' + cat.id}>{categoryPath(cat.id!, CATEGORY_GROUPS)}</option>)}</optgroup>
-                  <optgroup label="Categorías específicas">{exactCategories.map(cat => <option key={cat} value={EXACT_PREFIX + cat}>{cat}</option>)}</optgroup>
-                  {category !== ALL && !category.startsWith(EXACT_PREFIX) && !categoryOptions.some(option => option.value === category) && !SIDEBAR_PARENTS.some(parent => parent.label === category) && <option value={category}>{category}</option>}
+                  {categoryOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
+                <p className="text-xs text-[hsl(var(--text-soft))] mt-2">Elegí las subcategorías desde el menú de la tienda.</p>
               </div>
               <fieldset>
                 <legend className="font-semibold text-sm mb-2">Marcas</legend>
