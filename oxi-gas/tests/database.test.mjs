@@ -20,6 +20,15 @@ test('PostgreSQL: permisos, transacciones, orden y Storage', async t => {
     const migration = await readFile(new URL('../supabase/migrations/202610230001_security_and_transactions.sql', import.meta.url), 'utf8');
     await db.exec(migration);
     await db.exec(migration); // Idempotencia.
+    await db.exec(`create table public.featured_offers(id uuid primary key default gen_random_uuid(), name text);
+      grant all on public.featured_offers to anon, authenticated;
+      alter table public.featured_offers enable row level security;
+      create policy "public read" on public.featured_offers for select using (true);
+      create policy "auth write" on public.featured_offers for all to authenticated using (true) with check (true);
+      insert into public.featured_offers(name) values ('Histórica');`);
+    const legacyMigration = await readFile(new URL('../supabase/migrations/202610270001_legacy_featured_offers_permissions.sql', import.meta.url), 'utf8');
+    await db.exec(legacyMigration);
+    await db.exec(legacyMigration);
     await db.exec(`insert into public.admin_users values ('11111111-1111-1111-1111-111111111111','admin');
       insert into public.products(code,name,visible) values ('A','Visible',true),('B','Oculto',false);
       insert into public.offers(name,visible) values ('Visible',true),('Oculta',false);
@@ -44,6 +53,16 @@ test('PostgreSQL: permisos, transacciones, orden y Storage', async t => {
       assert.equal((await db.query('delete from public.offers returning *')).rows.length, 0);
       await assert.rejects(db.query('select public.reorder_offers($1::uuid[])', [[]]));
     });
+    await t.test('tabla heredada: usuario común y visitante no escriben, conservan lectura y datos', async () => {
+      for (const [role, uid] of [['anon', ''], ['authenticated', '22222222-2222-2222-2222-222222222222']]) {
+        await become(role, uid);
+        assert.deepEqual((await db.query('select name from public.featured_offers')).rows, [{ name: 'Histórica' }]);
+        await assert.rejects(db.exec("insert into public.featured_offers(name) values ('No autorizado')"));
+        assert.equal((await db.query("update public.featured_offers set name='No autorizado' returning *")).rows.length, 0);
+        assert.equal((await db.query('delete from public.featured_offers returning *')).rows.length, 0);
+      }
+      await become('authenticated', '22222222-2222-2222-2222-222222222222');
+    });
     await t.test('Storage bloquea escritura común pese a una política amplia anterior', async () => {
       await assert.rejects(db.exec("insert into storage.objects(bucket_id) values ('product-images')"));
       await db.exec("insert into storage.objects(bucket_id) values ('otro-bucket')");
@@ -52,6 +71,9 @@ test('PostgreSQL: permisos, transacciones, orden y Storage', async t => {
       await become('authenticated', '11111111-1111-1111-1111-111111111111');
       assert.equal((await db.query('select * from public.products')).rows.length, 2);
       await db.exec("insert into public.offers(name) values ('Nueva'); insert into storage.objects(bucket_id) values ('product-images')");
+      await db.exec("insert into public.featured_offers(name) values ('Administrada')");
+      assert.equal((await db.query("update public.featured_offers set name='Editada' where name='Administrada' returning *")).rows.length, 1);
+      assert.equal((await db.query("delete from public.featured_offers where name='Editada' returning *")).rows.length, 1);
       await assert.rejects(db.exec("insert into public.products(code,name,price) values ('NEG','Precio negativo',-1)"));
       await assert.rejects(db.exec("insert into public.offers(name,price) values ('Inválida','NaN'::numeric)"));
     });
