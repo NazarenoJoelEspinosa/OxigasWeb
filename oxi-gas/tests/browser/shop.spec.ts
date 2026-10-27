@@ -1,5 +1,30 @@
 import { test, expect } from '@playwright/test';
 
+test('cantidad permite borrar el 1 y escribir 3 en tarjeta y detalle', async ({ page }) => {
+  await page.goto('./productos');
+  const quantity = page.getByRole('spinbutton', { name: 'Cantidad de Taladro Bosch', exact: true });
+  await quantity.fill('');
+  await expect(quantity).toHaveValue('');
+  await quantity.pressSequentially('3');
+  await expect(quantity).toHaveValue('3');
+  await page.getByRole('button', { name: '+ Agregar a cotización', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Mi cotización' }).filter({ visible: true }).click();
+  await expect(page.getByText('Cantidad: 3', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Cotizar 1 producto/ })).toHaveAttribute('href', /Cantidad%3A%203/);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Ver Taladro Bosch', exact: true }).click();
+  const modalQuantity = page.getByRole('dialog').getByRole('spinbutton', { name: 'Cantidad', exact: true });
+  await modalQuantity.fill('');
+  await expect(modalQuantity).toHaveValue('');
+  await modalQuantity.pressSequentially('3');
+  await expect(page.getByRole('link', { name: 'Consultar por WhatsApp', exact: true })).toHaveAttribute('href', /Cantidad%3A%203/);
+  for (const invalid of ['', '0', '-2', '2.5']) {
+    await modalQuantity.fill(invalid);
+    await modalQuantity.press('Tab');
+    await expect(modalQuantity).toHaveValue(invalid === '2.5' ? '2' : '1');
+  }
+});
+
 test.beforeEach(async ({ page }) => {
   await page.route('**/fixture-photo-*.svg', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><rect width="320" height="240" fill="#edf2f7"/><text x="160" y="120" text-anchor="middle" fill="#245a9b" font-family="sans-serif" font-size="18">Foto de prueba</text></svg>' }));
   await page.route('https://fixture.supabase.co/**', async route => {

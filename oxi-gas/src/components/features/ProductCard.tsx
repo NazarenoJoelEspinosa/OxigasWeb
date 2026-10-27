@@ -18,7 +18,7 @@ export function ProductCard({
 }) {
   const hasImage = product.images && product.images.length > 0;
   const isInCart = cart.has(product.code);
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState('1');
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
 
   return (
@@ -86,7 +86,8 @@ export function ProductCard({
               type="number"
               min="1"
               value={qty}
-              onChange={(e) => setQty(Number(normalizeQuantity(e.target.value)))}
+              onChange={(e) => setQty(e.target.value)}
+              onBlur={() => setQty(normalizeQuantity(qty))}
               onClick={(e) => e.stopPropagation()}
               aria-label={`Cantidad de ${product.name}`}
               placeholder="Cantidad"
@@ -98,7 +99,7 @@ export function ProductCard({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            cart.toggle(product.code, { cantidad: String(qty), ...customValues });
+            cart.toggle(product.code, { ...customValues, cantidad: normalizeQuantity(qty) });
           }}
           className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
             isInCart

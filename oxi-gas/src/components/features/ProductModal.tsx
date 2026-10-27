@@ -114,7 +114,8 @@ export function ProductModal({
               min="1"
               aria-label="Cantidad"
               value={fieldValues['cantidad']}
-              onChange={(e) => setFieldValues((prev) => ({ ...prev, cantidad: normalizeQuantity(e.target.value) }))}
+              onChange={(e) => setFieldValues((prev) => ({ ...prev, cantidad: e.target.value }))}
+              onBlur={() => setFieldValues((prev) => ({ ...prev, cantidad: normalizeQuantity(prev['cantidad']) }))}
               className="w-full h-10 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
