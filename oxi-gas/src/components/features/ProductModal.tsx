@@ -4,7 +4,7 @@ import { productUrl } from '@/lib/shop-links';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { whatsappUrl } from '@/config/constants';
 import type { Product } from '@/lib/models';
-import { normalizeQuantity } from '@/lib/format';
+import { normalizeQuantity, formatProductName } from '@/lib/format';
 
 export function ProductModal({
   product,
@@ -23,7 +23,7 @@ export function ProductModal({
     const url = productUrl(product.code);
     try {
       if (navigator.share) {
-        await navigator.share({ title: product.name, url });
+        await navigator.share({ title: formatProductName(product.name), url });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -47,7 +47,7 @@ export function ProductModal({
 
         <div className="relative bg-[hsl(var(--surface-2))] aspect-video flex items-center justify-center">
           {hasImage ? (
-            <img src={images[imageIndex]} alt={`${product.name} — foto ${imageIndex + 1}`} className="w-full h-full object-contain p-6" />
+            <img src={images[imageIndex]} alt={`${formatProductName(product.name)} — foto ${imageIndex + 1}`} className="w-full h-full object-contain p-6" />
           ) : (
             <span className="text-6xl">📦</span>
           )}
@@ -66,7 +66,7 @@ export function ProductModal({
         </div>}
 
         <div className="p-6">
-          <DialogTitle className="text-xl font-bold text-[hsl(var(--text-main))] mb-1">{product.name}</DialogTitle>
+          <DialogTitle className="text-xl font-bold text-[hsl(var(--text-main))] mb-1">{formatProductName(product.name)}</DialogTitle>
           {product.brand && <p className="text-sm text-[hsl(var(--text-soft))] mb-1">{product.brand}</p>}
           <p className="text-xs font-mono text-[hsl(var(--text-soft))]/60 mb-4">Código: {product.code}</p>
           <button type="button" onClick={() => void share()} className="inline-flex items-center gap-2 text-sm text-primary font-semibold mb-3"><Share2 size={16} />Compartir producto</button>
@@ -122,7 +122,7 @@ export function ProductModal({
 
           <a
             href={whatsappUrl(
-              `Hola OXI-GAS, quiero consultar por:\n*${product.name}*\nCódigo: ${product.code}${product.brand ? `\nMarca: ${product.brand}` : ''}\nCantidad: ${normalizeQuantity(fieldValues['cantidad'])}${product.custom_fields.map(f => fieldValues[f.key]?.trim() ? `\n${f.label}: ${fieldValues[f.key].trim()}` : '').join('')}`,
+              `Hola OXI-GAS, quiero consultar por:\n*${formatProductName(product.name)}*\nCódigo: ${product.code}${product.brand ? `\nMarca: ${product.brand}` : ''}\nCantidad: ${normalizeQuantity(fieldValues['cantidad'])}${product.custom_fields.map(f => fieldValues[f.key]?.trim() ? `\n${f.label}: ${fieldValues[f.key].trim()}` : '').join('')}`,
             )}
             target="_blank"
             rel="noopener noreferrer"

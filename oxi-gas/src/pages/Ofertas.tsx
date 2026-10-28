@@ -4,7 +4,7 @@ import { MessageCircle, Tag, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
-import { formatPrecio } from '@/lib/format';
+import { formatPrecio, formatProductName } from '@/lib/format';
 import { whatsappUrl } from '@/config/constants';
 import { useOffers } from '@/hooks/useOffers';
 
@@ -101,7 +101,7 @@ export default function Ofertas() {
                   {offer.image ? (
                     <img
                       src={offer.image}
-                      alt={offer.name}
+                      alt={formatProductName(offer.name)}
                       className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
@@ -123,7 +123,7 @@ export default function Ofertas() {
                     </p>
                   )}
                   <h3 className="font-bold text-[hsl(var(--text-main))] text-base leading-snug mb-2 line-clamp-2">
-                    {offer.name}
+                    {formatProductName(offer.name)}
                   </h3>
                   {offer.description && (
                     <p className="text-sm text-[hsl(var(--text-soft))] line-clamp-2 mb-3 flex-1">
@@ -146,7 +146,7 @@ export default function Ofertas() {
                   )}
 
                   <a
-                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar la oferta: ${offer.name}`)}
+                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar la oferta: ${formatProductName(offer.name)}`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-auto inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#25d366] hover:bg-[#1ebe5d] text-white font-semibold text-sm transition-colors"

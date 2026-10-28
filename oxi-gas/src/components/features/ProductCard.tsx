@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { ZoomIn } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import type { Product } from '@/lib/models';
-import { normalizeQuantity } from '@/lib/format';
+import { normalizeQuantity, formatProductName } from '@/lib/format';
 
 export function ProductCard({
   product,
@@ -28,11 +28,11 @@ export function ProductCard({
       transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3) }}
       className="group bg-[hsl(var(--surface-1))] rounded-2xl border border-[hsl(var(--surface-3))] hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 overflow-visible flex flex-col h-full"
     >
-      <div role="button" tabIndex={0} aria-label={`Ver ${product.name}`} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }} onClick={onOpen} className="relative aspect-square bg-[hsl(var(--surface-2))] overflow-hidden cursor-pointer rounded-t-2xl">
+      <div role="button" tabIndex={0} aria-label={`Ver ${formatProductName(product.name)}`} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }} onClick={onOpen} className="relative aspect-square bg-[hsl(var(--surface-2))] overflow-hidden cursor-pointer rounded-t-2xl">
         {hasImage ? (
           <img
             src={product.images![0]}
-            alt={product.name}
+            alt={formatProductName(product.name)}
             loading="lazy"
             className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
           />
@@ -46,11 +46,11 @@ export function ProductCard({
         </div>
       </div>
 
-      <div className="p-3 flex-1 cursor-pointer" role="button" tabIndex={0} aria-label={`Detalles de ${product.name}`} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }} onClick={onOpen}>
+      <div className="p-3 flex-1 cursor-pointer" role="button" tabIndex={0} aria-label={`Detalles de ${formatProductName(product.name)}`} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }} onClick={onOpen}>
         {product.category && (
           <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">{product.category}</p>
         )}
-        <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{product.name}</p>
+        <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{formatProductName(product.name)}</p>
         {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
 
         {product.price != null && (
@@ -89,7 +89,7 @@ export function ProductCard({
               onChange={(e) => setQty(e.target.value)}
               onBlur={() => setQty(normalizeQuantity(qty))}
               onClick={(e) => e.stopPropagation()}
-              aria-label={`Cantidad de ${product.name}`}
+              aria-label={`Cantidad de ${formatProductName(product.name)}`}
               placeholder="Cantidad"
               className="w-full h-9 px-3 rounded-lg border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] text-sm text-[hsl(var(--text-main))] focus:outline-none focus:ring-2 focus:ring-primary/40"
             />

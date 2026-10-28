@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { MessageCircle, Zap, Tag, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
-import { formatPrecio } from '@/lib/format';
+import { formatPrecio, formatProductName } from '@/lib/format';
 import { whatsappUrl } from '@/config/constants';
 import { useOffers } from '@/hooks/useOffers';
 
@@ -78,7 +78,7 @@ export function FeaturedOffers() {
                 {oferta.image ? (
                   <motion.img
                     src={oferta.image}
-                    alt={oferta.name}
+                    alt={formatProductName(oferta.name)}
                     className="w-full h-full object-contain p-8"
                     initial={{ scale: 0.97 }}
                     animate={{ scale: 1 }}
@@ -122,7 +122,7 @@ export function FeaturedOffers() {
                 )}
 
                 <h3 className="text-3xl md:text-4xl font-bold text-[hsl(var(--text-main))] mb-4">
-                  {oferta.name}
+                  {formatProductName(oferta.name)}
                 </h3>
 
                 {oferta.description && (
@@ -133,7 +133,7 @@ export function FeaturedOffers() {
 
                 <div className="flex flex-wrap gap-3">
                   <a
-                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar el precio del producto en oferta: ${oferta.name}`)}
+                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar el precio del producto en oferta: ${formatProductName(oferta.name)}`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-base transition-all duration-300 group/btn"

@@ -1,5 +1,25 @@
 import { test, expect } from '@playwright/test';
 
+test('nombres de productos se presentan por palabra en tienda, detalle y cotización', async ({page}) => {
+  const original='TIJERA CORTA TUBO PVC 42 mm';
+  const display='Tijera Corta Tubo Pvc 42 Mm';
+  await page.route('**/rest/v1/products?**',route => {
+    const offset=Number(new URL(route.request().url()).searchParams.get('offset') || 0);
+    return route.fulfill({json:[{id:'title',code:'BR6798',name:original,brand:'BREMEN',visible:true}].slice(offset)});
+  });
+  await page.goto('./productos?q=TIJERA');
+  await expect(page.getByRole('button',{name:`Detalles de ${display}`,exact:true}).getByText(display,{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:`Ver ${display}`,exact:true}).click();
+  await expect(page.getByRole('dialog').getByRole('heading',{name:display,exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Consultar por WhatsApp',exact:true})).toHaveAttribute('href',new RegExp(encodeURIComponent(display)));
+  await page.screenshot({path:'test-results/producto-nombre-formateado.png',fullPage:false});
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'+ Agregar a cotización',exact:true}).click();
+  await page.getByRole('button',{name:'Ver mi cotización · 1 producto',exact:true}).click();
+  await expect(page.getByRole('dialog').getByText(display,{exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Enviar cotización por WhatsApp',exact:true})).toHaveAttribute('href',new RegExp(encodeURIComponent(display)));
+});
+
 test('marcas históricas con distinta capitalización se ven iguales y comparten filtro', async ({page}) => {
   await page.route('**/rest/v1/products?**',route => {
     const offset=Number(new URL(route.request().url()).searchParams.get('offset') || 0);

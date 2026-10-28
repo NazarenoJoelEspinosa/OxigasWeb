@@ -1,3 +1,4 @@
+import { formatProductName } from '@/lib/format';
 import { useEffect, useMemo, useState } from 'react';
 import { MessageCircle, ShoppingCart, Trash2, X } from 'lucide-react';
 import {
@@ -24,7 +25,7 @@ type QuoteCartProps = {
 
 function buildWhatsAppHref(enrichedItems: readonly EnrichedItem[]): string {
   const lines = enrichedItems.map(({ product, cartItem }) => {
-    let line = `• [${product.code}] ${product.name}`;
+    let line = `• [${product.code}] ${formatProductName(product.name)}`;
     const extras: string[] = [];
     const cantidad = cartItem.fields?.['cantidad']?.trim();
     if (cantidad) extras.push(`Cantidad: ${cantidad}`);
@@ -164,7 +165,7 @@ function CartItemRow({
           {product.code}
         </p>
         <p className="mt-0.5 text-sm font-semibold text-[hsl(var(--text-main))] leading-snug">
-          {product.name}
+          {formatProductName(product.name)}
         </p>
         <p className="mt-1 text-xs text-[hsl(var(--text-soft))]">{product.brand}</p>
         {fieldSummary && (
@@ -176,7 +177,7 @@ function CartItemRow({
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`Quitar ${product.name}`}
+        aria-label={`Quitar ${formatProductName(product.name)}`}
         className="shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-md text-[hsl(var(--text-soft))] hover:text-destructive hover:bg-[hsl(var(--surface-3))] transition-colors"
       >
         <X className="h-4 w-4" />

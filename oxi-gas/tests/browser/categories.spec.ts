@@ -203,6 +203,18 @@ test('guardar producto envía contenido y clasificación en una sola operación'
   expect(saved).toMatchObject({p_primary:id(4),p_related:[id(5)],p_product:{id:id(100),code:'CODE0',name:'Producto 00',brand:'Lusqtoff'}});
 });
 
+test('administración conserva el nombre original aunque la tienda lo presente formateado', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  const {products}=await setup(page,true);
+  products[0].name='JUEGO LLAVE ALLEN CORTA';
+  await page.goto('./admin/dashboard');
+  await page.getByRole('searchbox',{name:'Buscar productos en administración',exact:true}).fill('JUEGO LLAVE');
+  const item=page.getByRole('article');
+  await expect(item.getByRole('heading',{name:'JUEGO LLAVE ALLEN CORTA',exact:true})).toBeVisible();
+  await item.getByRole('button',{name:'Editar',exact:true}).click();
+  await expect(page.getByPlaceholder('Ej: Tornillo Madera FIXER',{exact:true})).toHaveValue('JUEGO LLAVE ALLEN CORTA');
+});
+
 test('desde categorías ve mini productos y quita asociaciones sin borrar el producto', async ({ page }) => {
   const {products} = await setup(page,true);
   const changes: Record<string,unknown>[] = [];

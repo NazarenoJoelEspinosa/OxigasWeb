@@ -3,8 +3,19 @@ import assert from 'node:assert/strict';
 import { parseCart } from '../src/lib/cart-storage.ts';
 import { readAllPages } from '../src/lib/pagination.ts';
 import { stableCustomFields, productSchema, offerSchema, formatBrand, isMissingTable } from '../src/lib/models.ts';
-import { normalizeQuantity } from '../src/lib/format.ts';
+import { normalizeQuantity, formatProductName } from '../src/lib/format.ts';
 import { restoredPath } from '../src/lib/redirect.ts';
+
+test('nombres públicos: iniciales mayúsculas sin modificar datos guardados ni códigos', () => {
+  const name='TIJERA CORTA TUBO PVC 42 mm';
+  const product=productSchema.parse({id:'a',code:'BR6798',name});
+  assert.equal(formatProductName(product.name),'Tijera Corta Tubo Pvc 42 Mm');
+  assert.equal(product.name,name);
+  assert.equal(product.code,'BR6798');
+  assert.equal(formatProductName('  CORTA  CAÑOS para PVC '),'Corta Caños Para Pvc');
+  assert.equal(formatProductName('ÁNGULO B&D 115×1.6×22'),'Ángulo B&D 115×1.6×22');
+  assert.equal(formatProductName(''),'');
+});
 
 test('marcas: primera letra mayúscula y resto minúsculas en productos y ofertas históricos', () => {
   for (const value of ['LUSQTOFF','lusqtoff','LuSqToFf','  Lusqtoff  ']) {
