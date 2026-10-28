@@ -194,10 +194,13 @@ test('guardar producto envía contenido y clasificación en una sola operación'
   await page.getByRole('article').first().getByRole('button',{name:'Editar',exact:true}).click();
   await expect(page.getByLabel('Categoría principal',{exact:true})).toHaveValue(id(3));
   await expect(page.getByRole('checkbox',{name:'Soldadura',exact:true})).toBeChecked();
+  await page.getByRole('textbox',{name:'Marca del producto',exact:true}).fill('  LUSQTOFF  ');
+  await page.getByRole('textbox',{name:'Marca del producto',exact:true}).press('Tab');
+  await expect(page.getByRole('textbox',{name:'Marca del producto',exact:true})).toHaveValue('Lusqtoff');
   await page.getByLabel('Categoría principal',{exact:true}).selectOption(id(4));
   await page.getByRole('button',{name:'Guardar cambios',exact:true}).click();
   await expect(page.getByRole('button',{name:'Guardar cambios',exact:true})).toHaveCount(0);
-  expect(saved).toMatchObject({p_primary:id(4),p_related:[id(5)],p_product:{id:id(100),code:'CODE0',name:'Producto 00'}});
+  expect(saved).toMatchObject({p_primary:id(4),p_related:[id(5)],p_product:{id:id(100),code:'CODE0',name:'Producto 00',brand:'Lusqtoff'}});
 });
 
 test('desde categorías ve mini productos y quita asociaciones sin borrar el producto', async ({ page }) => {

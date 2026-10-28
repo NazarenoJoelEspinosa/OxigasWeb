@@ -12,7 +12,7 @@ import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
 import { useCart } from '@/context/CartContext';
 import { loadShopProducts } from '@/lib/catalog';
-import type { Product } from '@/lib/models';
+import { formatBrand, type Product } from '@/lib/models';
 import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 import { belongsToCategory, categoryBranch, categoryPath } from '@/lib/categories';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
@@ -225,7 +225,7 @@ export default function Productos() {
         </div>
         {hasFilters && <div aria-label="Filtros activos" className="flex flex-wrap gap-2 mb-5 text-xs">
           {category !== ALL && <button type="button" onClick={() => setCategory(ALL)} aria-label="Quitar filtro de categoría" className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-3 py-2">{selectedNode ? categoryPath(selectedNode.id!, CATEGORY_GROUPS) : category.startsWith(EXACT_PREFIX) ? category.slice(EXACT_PREFIX.length) : category}<X size={12} /></button>}
-          {[...selectedBrands].map(brand => <button type="button" key={brand} onClick={() => toggleBrand(brand)} aria-label={`Quitar marca ${brand}`} className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-3 py-2">{brand}<X size={12} /></button>)}
+          {[...selectedBrands].map(brand => <button type="button" key={brand} onClick={() => toggleBrand(brand)} aria-label={`Quitar marca ${formatBrand(brand)}`} className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-3 py-2">{formatBrand(brand)}<X size={12} /></button>)}
         </div>}
 
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>

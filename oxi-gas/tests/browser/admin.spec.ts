@@ -60,6 +60,7 @@ test('oferta sube foto y guarda la URL generada sin pedir una dirección', async
   await page.getByRole('button', { name: 'Ofertas', exact: true }).click();
   await page.getByRole('button', { name: 'Nueva oferta' }).click();
   await page.getByRole('textbox', { name: 'Nombre de la oferta' }).fill('Oferta con foto');
+  await page.getByPlaceholder('Ej: Bosch',{exact:true}).fill('LUSQTOFF');
   await page.getByLabel('Foto de la oferta').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png });
   await expect(page.getByRole('img', { name: 'Vista previa de la oferta' })).toHaveAttribute('src', /^blob:/);
   await expect(page.getByLabel('URL de imagen (opcional)')).toBeDisabled();
@@ -68,6 +69,7 @@ test('oferta sube foto y guarda la URL generada sin pedir una dirección', async
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(uploaded).toBe(true);
   expect(saved?.image).toMatch(/^https:\/\/fixture.supabase.co\/storage\/v1\/object\/public\/product-images\/offers\/.+\.png$/);
+  expect(saved?.brand).toBe('Lusqtoff');
 });
 
 test('rechaza archivos inválidos y limpia la foto subida si no se guarda la oferta', async ({ page }) => {

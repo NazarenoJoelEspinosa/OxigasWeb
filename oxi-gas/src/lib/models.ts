@@ -2,9 +2,14 @@ import { z } from 'zod';
 export const customFieldSchema = z.object({ key: z.string().min(1), label: z.string().min(1), placeholder: z.string().optional() });
 export type CustomField = z.infer<typeof customFieldSchema>;
 const optionalText = z.string().nullable().optional().transform(v => v ?? undefined);
+export function formatBrand(value: string): string {
+  const text = value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+  return text.charAt(0).toLocaleUpperCase('es') + text.slice(1);
+}
+const optionalBrand = optionalText.transform(value => value === undefined ? undefined : formatBrand(value) || undefined);
 export const productSchema = z.object({
   id: z.string(), code: z.string(), name: z.string(),
-  description: optionalText, brand: optionalText, category: optionalText,
+  description: optionalText, brand: optionalBrand, category: optionalText,
   price: z.number().finite().nonnegative().nullable().optional().transform(v => v ?? undefined),
   visible: z.boolean().nullable().optional().transform(v => v === undefined ? true : v === true),
   images: z.array(z.string()).nullable().optional().transform(v => v ?? []),
@@ -14,7 +19,7 @@ export const productSchema = z.object({
 export type Product = z.infer<typeof productSchema>;
 export const offerSchema = z.object({
   id: z.string(), name: z.string(), product_code: optionalText,
-  description: optionalText, brand: optionalText, image: optionalText,
+  description: optionalText, brand: optionalBrand, image: optionalText,
   price: z.number().finite().nonnegative().nullable().optional().transform(v => v ?? undefined),
   original_price: z.number().finite().nonnegative().nullable().optional().transform(v => v ?? undefined),
   visible: z.boolean(), sort_order: z.number(), created_at: optionalText,

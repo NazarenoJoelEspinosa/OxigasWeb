@@ -1,5 +1,22 @@
 import { test, expect } from '@playwright/test';
 
+test('marcas históricas con distinta capitalización se ven iguales y comparten filtro', async ({page}) => {
+  await page.route('**/rest/v1/products?**',route => {
+    const offset=Number(new URL(route.request().url()).searchParams.get('offset') || 0);
+    return route.fulfill({json:['LUSQTOFF','lusqtoff','LuSqToFf'].map((brand,i) => ({id:String(i),code:`L${i}`,name:`Herramienta ${i}`,brand,visible:true})).slice(offset)});
+  });
+  await page.goto('./productos?marca=LUSQTOFF');
+  for (let i=0;i<3;i++) await expect(page.getByRole('button',{name:`Detalles de Herramienta ${i}`,exact:true}).getByText('Lusqtoff',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Quitar marca Lusqtoff',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Ver Herramienta 0',exact:true}).click();
+  await expect(page.getByRole('dialog').getByText('Lusqtoff',{exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Consultar por WhatsApp',exact:true})).toHaveAttribute('href',/Marca%3A%20Lusqtoff/);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:/^Filtros/}).click();
+  await expect(page.getByRole('checkbox',{name:'Lusqtoff 3',exact:true})).toBeChecked();
+  await expect(page.getByRole('checkbox')).toHaveCount(1);
+});
+
 test('cantidad permite borrar el 1 y escribir 3 en tarjeta y detalle', async ({ page }) => {
   await page.goto('./productos');
   const quantity = page.getByRole('spinbutton', { name: 'Cantidad de Taladro Bosch', exact: true });

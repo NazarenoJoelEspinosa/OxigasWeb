@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { stableCustomFields, errorMessage, type CustomField, type Product } from '@/lib/models';
+import { stableCustomFields, errorMessage, formatBrand, type CustomField, type Product } from '@/lib/models';
 import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 import { ClassificationFields } from './ClassificationFields';
 
@@ -102,7 +102,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
       const camposLimpios = stableCustomFields(customFields);
       const datos = {
         code: codigo.trim(), name: nombre.trim(), description: descripcion.trim(),
-        brand: marca.trim(), category: categoria.trim(),
+        brand: formatBrand(marca), category: categoria.trim(),
         price: categoria.trim().toLowerCase() === 'ofertas' && precio !== '' ? Number(precio) : null,
         visible: visible,
         images: imagenesFinal, custom_fields: camposLimpios,
@@ -160,7 +160,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Marca</label>
-            <input value={marca} onChange={(e) => setMarca(e.target.value)}
+            <input aria-label="Marca del producto" value={marca} onChange={(e) => setMarca(e.target.value)} onBlur={() => setMarca(formatBrand(marca))}
               className="w-full px-3 py-2 border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Ej: BOSCH, FIXER..." />
           </div>

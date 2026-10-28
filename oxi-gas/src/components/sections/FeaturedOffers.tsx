@@ -116,7 +116,7 @@ export function FeaturedOffers() {
                 )}
 
                 {oferta.brand && (
-                  <p className="text-sm font-semibold uppercase tracking-widest text-primary/70 mb-2">
+                  <p className="text-sm font-semibold tracking-wide text-primary/70 mb-2">
                     {oferta.brand}
                   </p>
                 )}

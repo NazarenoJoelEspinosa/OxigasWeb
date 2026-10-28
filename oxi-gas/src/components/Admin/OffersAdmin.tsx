@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useOffers, type Offer } from '@/hooks/useOffers';
+import { formatBrand } from '@/lib/models';
 import { validateImage, uploadOfferImage, discardUploadedImage } from '@/lib/image-upload';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Save, X, Eye, EyeOff, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
@@ -56,7 +57,7 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
       }
       await onSave({
         name: name.trim(),
-        brand: brand.trim() || '',
+        brand: formatBrand(brand),
         description: description.trim() || '',
         price: price !== '' ? Number(price) : undefined,
         original_price: originalPrice !== '' ? Number(originalPrice) : undefined,
@@ -101,6 +102,7 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
               <input
                 type="text"
                 value={brand}
+                onBlur={() => setBrand(formatBrand(brand))}
                 onChange={(e) => setBrand(e.target.value)}
                 placeholder="Ej: Bosch"
                 className="w-full px-3 py-2.5 border border-[hsl(var(--surface-3))] rounded-xl bg-[hsl(var(--surface-0))] text-[hsl(var(--text-main))] text-sm focus:outline-none focus:border-primary"

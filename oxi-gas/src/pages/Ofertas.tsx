@@ -118,7 +118,7 @@ export default function Ofertas() {
                 {/* Info */}
                 <div className="flex flex-col flex-1 p-4">
                   {offer.brand && (
-                    <p className="text-xs font-bold uppercase tracking-widest text-primary mb-1">
+                    <p className="text-xs font-bold tracking-wide text-primary mb-1">
                       {offer.brand}
                     </p>
                   )}

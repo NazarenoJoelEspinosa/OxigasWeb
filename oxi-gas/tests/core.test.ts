@@ -2,9 +2,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCart } from '../src/lib/cart-storage.ts';
 import { readAllPages } from '../src/lib/pagination.ts';
-import { stableCustomFields, productSchema, isMissingTable } from '../src/lib/models.ts';
+import { stableCustomFields, productSchema, offerSchema, formatBrand, isMissingTable } from '../src/lib/models.ts';
 import { normalizeQuantity } from '../src/lib/format.ts';
 import { restoredPath } from '../src/lib/redirect.ts';
+
+test('marcas: primera letra mayúscula y resto minúsculas en productos y ofertas históricos', () => {
+  for (const value of ['LUSQTOFF','lusqtoff','LuSqToFf','  Lusqtoff  ']) {
+    assert.equal(formatBrand(value),'Lusqtoff');
+    assert.equal(productSchema.parse({id:'a',code:'A',name:'Producto',brand:value}).brand,'Lusqtoff');
+    assert.equal(offerSchema.parse({id:'o',name:'Oferta',brand:value,visible:true,sort_order:0}).brand,'Lusqtoff');
+  }
+  assert.equal(formatBrand(' BLACK   & DECKER '),'Black & decker');
+  assert.equal(formatBrand('ÁRBOL'),'Árbol');
+  assert.equal(formatBrand('   '),'');
+  for (const brand of [null,undefined,'']) assert.equal(productSchema.parse({id:'a',code:'A',name:'Producto',brand}).brand,undefined);
+});
 
 test('carrito: JSON inválido y valores no string no rompen el render', () => {
   assert.deepEqual(parseCart('{'), []);
