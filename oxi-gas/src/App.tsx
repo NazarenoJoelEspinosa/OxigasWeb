@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { lazy, Suspense, useEffect } from 'react';
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/context/ThemeContext";
@@ -13,6 +13,18 @@ const AdminLogin = lazy(() => import("@/pages/Admin/Login"));
 const AdminDashboard = lazy(() => import("@/pages/Admin/Dashboard"));
 
 function Router() {
+  const [location] = useLocation();
+  useEffect(() => {
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (canonical) canonical.href = 'https://oxigas.com.ar' + (location === '/' ? '/' : location);
+    let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.name = 'robots';
+      document.head.appendChild(robots);
+    }
+    robots.content = ['/', '/productos', '/ofertas'].includes(location) ? 'index, follow' : 'noindex, follow';
+  }, [location]);
   return (
     <Switch>
       <Route path="/" component={Home} />

@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import { writeFileSync, rmSync } from "node:fs";
+import { writeFileSync, rmSync, readFileSync } from "node:fs";
 
 const port = Number(process.env.PORT || 3000);
 
@@ -22,6 +22,14 @@ export default defineConfig({
       apply: 'build',
       closeBundle() {
         if (cloudflarePages) {
+          // Las rutas públicas tienen su propia canonical desde el HTML inicial.
+          const html = readFileSync(path.resolve(import.meta.dirname, 'dist/index.html'), 'utf8');
+          for (const route of ['productos', 'ofertas']) {
+            writeFileSync(path.resolve(import.meta.dirname, 'dist', `${route}.html`), html.replace(
+              /<link rel="canonical" href="[^"]*"\s*\/>/,
+              `<link rel="canonical" href="https://oxigas.com.ar/${route}" />`,
+            ));
+          }
           // Un 404.html desactiva el fallback SPA nativo de Cloudflare Pages.
           rmSync(path.resolve(import.meta.dirname, 'dist/404.html'), { force: true });
           return;
