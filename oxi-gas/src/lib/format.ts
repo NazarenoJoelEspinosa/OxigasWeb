@@ -5,6 +5,11 @@ export function normalizeQuantity(value: unknown): string {
 const formatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0, maximumFractionDigits: 2 });
 export function formatPrecio(price: number): string { return formatter.format(price); }
 
+export function hasPriceDiscount(price?: number | null, originalPrice?: number | null): boolean {
+  return price != null && originalPrice != null && Number.isFinite(price) && Number.isFinite(originalPrice)
+    && price >= 0 && originalPrice > price;
+}
+
 /** Formato de presentación; no modifica el nombre guardado en el catálogo. */
 export function formatProductName(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es')

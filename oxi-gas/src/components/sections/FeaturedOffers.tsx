@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { MessageCircle, Zap, Tag, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
-import { formatPrecio, formatProductName } from '@/lib/format';
+import { formatPrecio, formatProductName, hasPriceDiscount } from '@/lib/format';
 import { whatsappUrl } from '@/config/constants';
 import { useOffers } from '@/hooks/useOffers';
 
@@ -55,10 +55,10 @@ export function FeaturedOffers() {
             <p className="text-sm font-bold uppercase tracking-[0.25em] text-primary">OFERTAS</p>
           </div>
           <h2 className="text-4xl md:text-5xl font-extrabold text-[hsl(var(--text-main))] mb-4">
-            Productos en Oferta
+            Ofertas
           </h2>
           <p className="text-lg md:text-xl text-[hsl(var(--text-soft))] max-w-3xl mx-auto">
-            Productos seleccionados a precios especiales. Consultá disponibilidad.
+            Productos seleccionados con precios publicados. Consultá disponibilidad.
           </p>
         </motion.div>
 
@@ -107,9 +107,9 @@ export function FeaturedOffers() {
                         {formatPrecio(oferta.price)}
                       </span>
                     </div>
-                    {oferta.original_price != null && (
+                    {hasPriceDiscount(oferta.price, oferta.original_price) && (
                       <span className="text-lg text-[hsl(var(--text-soft))] line-through">
-                        {formatPrecio(oferta.original_price)}
+                        {formatPrecio(oferta.original_price!)}
                       </span>
                     )}
                   </div>
@@ -133,7 +133,7 @@ export function FeaturedOffers() {
 
                 <div className="flex flex-wrap gap-3">
                   <a
-                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar el precio del producto en oferta: ${formatProductName(oferta.name)}`)}
+                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar el precio del producto: ${formatProductName(oferta.name)}`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-base transition-all duration-300 group/btn"

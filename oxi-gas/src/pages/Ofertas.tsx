@@ -4,7 +4,7 @@ import { MessageCircle, Tag, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { WhatsAppButton } from '@/components/layout/WhatsAppButton';
-import { formatPrecio, formatProductName } from '@/lib/format';
+import { formatPrecio, formatProductName, hasPriceDiscount } from '@/lib/format';
 import { whatsappUrl } from '@/config/constants';
 import { useOffers } from '@/hooks/useOffers';
 
@@ -38,7 +38,7 @@ export default function Ofertas() {
             </h1>
           </div>
           <p className="text-[hsl(var(--text-soft))] text-lg max-w-xl">
-            Productos seleccionados a precios especiales. Consultá disponibilidad por WhatsApp.
+            Productos seleccionados con precios publicados. Consultá disponibilidad por WhatsApp.
           </p>
         </motion.div>
 
@@ -88,7 +88,10 @@ export default function Ofertas() {
 
         {status === 'ready' && offers.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {offers.map((offer, i) => (
+            {offers.map((offer, i) => {
+              const discounted = hasPriceDiscount(offer.price, offer.original_price);
+              const percent = discounted ? Math.round((1 - offer.price! / offer.original_price!) * 100) : 0;
+              return (
               <motion.div
                 key={offer.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -108,9 +111,9 @@ export default function Ofertas() {
                     <span className="text-6xl select-none">🏷️</span>
                   )}
                   {/* Badge descuento */}
-                  {offer.price != null && offer.original_price != null && offer.price < offer.original_price && (
+                  {discounted && percent > 0 && (
                     <div className="absolute top-3 right-3 bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">
-                      -{Math.round((1 - offer.price / offer.original_price) * 100)}%
+                      -{percent}%
                     </div>
                   )}
                 </div>
@@ -137,16 +140,16 @@ export default function Ofertas() {
                       <span className="text-xl font-extrabold text-primary">
                         {formatPrecio(offer.price)}
                       </span>
-                      {offer.original_price != null && (
+                      {discounted && (
                         <span className="text-sm text-[hsl(var(--text-soft))] line-through">
-                          {formatPrecio(offer.original_price)}
+                          {formatPrecio(offer.original_price!)}
                         </span>
                       )}
                     </div>
                   )}
 
                   <a
-                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar la oferta: ${formatProductName(offer.name)}`)}
+                    href={whatsappUrl(`Hola OXI-GAS, quiero consultar el producto: ${formatProductName(offer.name)}`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-auto inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#25d366] hover:bg-[#1ebe5d] text-white font-semibold text-sm transition-colors"
@@ -156,7 +159,7 @@ export default function Ofertas() {
                   </a>
                 </div>
               </motion.div>
-            ))}
+            );})}
           </div>
         )}
       </div>
