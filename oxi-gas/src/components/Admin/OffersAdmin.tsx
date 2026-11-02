@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useOffers, type Offer } from '@/hooks/useOffers';
+import { hasPriceDiscount } from '@/lib/format';
 import { formatBrand } from '@/lib/models';
 import { validateImage, uploadOfferImage, discardUploadedImage } from '@/lib/image-upload';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -141,9 +142,10 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">Precio de oferta</label>
+              <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">Precio actual</label>
               <input
                 type="number"
+                aria-label="Precio actual"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="Ej: 15000"
@@ -153,9 +155,10 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">Precio original</label>
+              <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">Precio anterior (opcional)</label>
               <input
                 type="number"
+                aria-label="Precio anterior (opcional)"
                 value={originalPrice}
                 onChange={(e) => setOriginalPrice(e.target.value)}
                 placeholder="Ej: 18000"
@@ -165,6 +168,8 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
               />
             </div>
           </div>
+
+          <p className="text-xs text-[hsl(var(--text-soft))]">Para publicar un artículo sin descuento, cargá solo el precio actual. El precio anterior se mostrará tachado únicamente si es mayor al actual.</p>
 
           <div>
             <label htmlFor="offer-image-file" className="block text-sm font-semibold mb-1.5">Foto de la oferta</label>
@@ -382,8 +387,8 @@ export default function OffersAdmin() {
                 {offer.price != null && (
                   <p className="font-bold text-primary text-sm">{formatPrice(offer.price)}</p>
                 )}
-                {offer.original_price != null && (
-                  <p className="text-xs text-[hsl(var(--text-soft))] line-through">{formatPrice(offer.original_price)}</p>
+                {hasPriceDiscount(offer.price, offer.original_price) && (
+                  <p className="text-xs text-[hsl(var(--text-soft))] line-through">{formatPrice(offer.original_price!)}</p>
                 )}
               </div>
 
