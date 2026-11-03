@@ -32,3 +32,8 @@ export async function onRequestGet(context) {
     return new Response('No pudimos cargar el producto. Intentá nuevamente.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '60', 'Cache-Control': 'no-store' } });
   }
 }
+
+export async function onRequestHead(context) {
+  const response = await onRequestGet(context);
+  return new Response(null, { status: response.status, headers: response.headers });
+}

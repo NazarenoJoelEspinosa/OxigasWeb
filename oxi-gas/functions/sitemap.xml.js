@@ -16,3 +16,8 @@ export async function onRequestGet(context) {
     return new Response('Sitemap temporalmente no disponible.', { status: 503, headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' } });
   }
 }
+
+export async function onRequestHead(context) {
+  const response = await onRequestGet(context);
+  return new Response(null, { status: response.status, headers: response.headers });
+}

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { onRequestGet as productPage } from '../functions/producto/[code].js';
+import { onRequestGet as productPage, onRequestHead as productHead } from '../functions/producto/[code].js';
 import { onRequestGet as sitemap } from '../functions/sitemap.xml.js';
 
 test('fichas públicas entregan HTML, metadatos y JSON seguro; ocultos no se publican', async t => {
@@ -25,6 +25,7 @@ test('fichas públicas entregan HTML, metadatos y JSON seguro; ocultos no se pub
   const map = await (await sitemap(context)).text();
   assert.match(map, /https:\/\/oxigas.com.ar\/producto\/A/);
   hidden = true;
+  assert.equal((await productHead(context)).status, 404);
   const missing = await productPage(context);
   assert.equal(missing.status, 404); assert.match(await missing.text(), /noindex/);
   assert.doesNotMatch(await (await sitemap(context)).text(), /\/producto\/A/);
