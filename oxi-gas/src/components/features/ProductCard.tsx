@@ -4,6 +4,7 @@ import { ZoomIn } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import type { Product } from '@/lib/models';
 import { normalizeQuantity, formatProductName } from '@/lib/format';
+import { ProductOffer } from './ProductOffer';
 
 export function ProductCard({
   product,
@@ -53,7 +54,7 @@ export function ProductCard({
         <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{formatProductName(product.name)}</p>
         {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
 
-        {product.price != null && (
+        {!product.shop_offer && product.price != null && (
           <p className="text-sm font-bold text-primary mt-2">
             ${product.price.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </p>
@@ -65,6 +66,7 @@ export function ProductCard({
         )}
       </div>
 
+      <ProductOffer offer={product.shop_offer} />
       <div className="px-3 pb-3 flex flex-col gap-2">
         {!isInCart && (
           <>

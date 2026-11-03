@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { isMissingTable, productSchema } from './models';
+import { isMissingTable, productSchema, offerSchema } from './models';
 import { readAllPages } from './pagination';
 import type { ProductRow } from './database.types';
 export async function loadProducts(signal?: AbortSignal, publicOnly = true) {
@@ -11,13 +11,21 @@ export async function loadProducts(signal?: AbortSignal, publicOnly = true) {
   return rows.map(row => productSchema.parse(row));
 }
 export async function loadShopProducts(signal: AbortSignal) {
-  const [products, offerCodes] = await Promise.all([
+  const [products, offers] = await Promise.all([
     loadProducts(signal),
-    readAllPages<{ product_code: string | null }>((from, to) => supabase.from('offers')
-      .select('product_code').eq('visible', true).not('product_code', 'is', null)
-      .order('id').range(from, to).abortSignal(signal))
+    readAllPages((from, to) => supabase.from('offers')
+      .select('*').eq('visible', true).not('product_code', 'is', null)
+      .order('sort_order').order('id').range(from, to).abortSignal(signal))
       .catch(error => { if (isMissingTable(error)) return []; throw error; }),
   ]);
-  const codes = new Set(offerCodes.map(o => o.product_code));
-  return products.filter(p => p.category?.trim().toLowerCase() !== 'ofertas' && !codes.has(p.code));
+  const byCode = new Map<string, ReturnType<typeof offerSchema.parse>>();
+  for (const row of offers) {
+    const offer = offerSchema.parse(row);
+    const code = offer.product_code?.trim();
+    if (code && !byCode.has(code)) byCode.set(code, offer);
+  }
+  return products.map(product => {
+    const offer = byCode.get(product.code.trim());
+    return offer ? { ...product, shop_offer: { id: offer.id, price: offer.price, original_price: offer.original_price } } : product;
+  });
 }

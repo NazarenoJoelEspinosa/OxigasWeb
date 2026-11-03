@@ -1,4 +1,5 @@
 import { Link } from 'wouter';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MessageCircle, Tag, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
@@ -11,6 +12,11 @@ import { useOffers } from '@/hooks/useOffers';
 
 export default function Ofertas() {
   const { offers, status, reload } = useOffers(true);
+  useEffect(() => {
+    if (status !== 'ready' || !window.location.hash.startsWith('#oferta-')) return;
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    document.getElementById(id)?.scrollIntoView({ block: 'center' });
+  }, [status, offers]);
 
   return (
     <main className="min-h-screen bg-[hsl(var(--surface-1))]">
@@ -94,6 +100,7 @@ export default function Ofertas() {
               return (
               <motion.div
                 key={offer.id}
+                id={`oferta-${offer.id}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.05 }}

@@ -125,7 +125,7 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
 
           {productCode.trim() && (
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              El producto con código <strong>{productCode}</strong> se ocultará del catálogo mientras esta oferta esté activa.
+              El producto con código <strong>{productCode}</strong> seguirá en su categoría de la tienda, con un aviso y enlace a esta publicación mientras esté visible.
             </p>
           )}
 
@@ -314,7 +314,7 @@ export default function OffersAdmin() {
           <h2 className="text-2xl font-bold text-[hsl(var(--text-main))]">Ofertas</h2>
           <p className="text-sm text-[hsl(var(--text-soft))] mt-0.5">
             Las ofertas aparecen en el carrusel de la home y en la página /ofertas.
-            Si cargás un código de producto, ese producto se oculta del catálogo mientras la oferta esté activa.
+            Si cargás el código de un producto existente, seguirá en la tienda y en su categoría con un aviso y enlace a esta publicación.
           </p>
         </div>
         <button

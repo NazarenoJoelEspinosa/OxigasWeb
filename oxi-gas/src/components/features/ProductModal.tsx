@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { whatsappUrl } from '@/config/constants';
 import type { Product } from '@/lib/models';
 import { normalizeQuantity, formatProductName } from '@/lib/format';
+import { ProductOffer } from './ProductOffer';
 
 export function ProductModal({
   product,
@@ -80,7 +81,8 @@ export function ProductModal({
           )}
 
           {/* FIX 6 (modal): Comparación case-insensitive para mostrar precio */}
-          {product.price != null && product.category?.toLowerCase() === 'ofertas' && (
+          <ProductOffer offer={product.shop_offer} />
+          {!product.shop_offer && product.price != null && product.category?.toLowerCase() === 'ofertas' && (
             <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/20">
               <p className="text-xs font-semibold text-primary mb-2 uppercase tracking-wider">Precio especial en oferta</p>
               <p className="text-3xl font-bold text-primary">

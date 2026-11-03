@@ -9,6 +9,7 @@ export function formatBrand(value: string): string {
 const optionalBrand = optionalText.transform(value => value === undefined ? undefined : formatBrand(value) || undefined);
 export const productSchema = z.object({
   id: z.string(), code: z.string(), name: z.string(),
+  shop_offer: z.object({ id: z.string(), price: z.number().optional(), original_price: z.number().optional() }).optional(),
   description: optionalText, brand: optionalBrand, category: optionalText,
   price: z.number().finite().nonnegative().nullable().optional().transform(v => v ?? undefined),
   visible: z.boolean().nullable().optional().transform(v => v === undefined ? true : v === true),
