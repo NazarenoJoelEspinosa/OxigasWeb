@@ -7,6 +7,7 @@ import { supabaseConfigured } from '@/lib/supabaseClient';
 import { WHATSAPP_URL } from '@/config/constants';
 import Home from "@/pages/Home";
 const Productos = lazy(() => import("@/pages/Productos"));
+const Producto = lazy(() => import("@/pages/Producto"));
 const Ofertas = lazy(() => import("@/pages/Ofertas"));
 import NotFound from "@/pages/NotFound";
 const AdminLogin = lazy(() => import("@/pages/Admin/Login"));
@@ -15,6 +16,15 @@ const AdminDashboard = lazy(() => import("@/pages/Admin/Dashboard"));
 function Router() {
   const [location] = useLocation();
   useEffect(() => {
+    if (!location.startsWith('/producto/')) {
+      document.title = location === '/productos' ? 'Tienda | OXI-GAS — Ferretería Industrial' : location === '/ofertas' ? 'Ofertas | OXI-GAS — Ferretería Industrial' : 'OXI-GAS — Ferretería Industrial en Ciudadela';
+      const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+      if (description) description.content = 'Herramientas, insumos y gases comprimidos en Ciudadela. Consultá productos y disponibilidad por WhatsApp.';
+      document.getElementById('product-schema')?.remove();
+      for (const [key, value] of Object.entries({ 'og:title': document.title, 'og:description': description?.content ?? '', 'og:url': 'https://oxigas.com.ar' + location, 'og:image': 'https://oxigas.com.ar/og-image.jpg', 'og:type': 'website' })) {
+        const meta = document.querySelector<HTMLMetaElement>(`meta[property="${key}"]`); if (meta) meta.content = value;
+      }
+    }
     const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (canonical) canonical.href = 'https://oxigas.com.ar' + (location === '/' ? '/' : location);
     let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
@@ -23,11 +33,12 @@ function Router() {
       robots.name = 'robots';
       document.head.appendChild(robots);
     }
-    robots.content = ['/', '/productos', '/ofertas'].includes(location) ? 'index, follow' : 'noindex, follow';
+    robots.content = (['/', '/productos', '/ofertas'].includes(location) || location.startsWith('/producto/')) ? 'index, follow' : 'noindex, follow';
   }, [location]);
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/producto/:code" component={Producto} />
       <Route path="/productos" component={Productos} />
       <Route path="/ofertas" component={Ofertas} />
       <Route path="/admin/login" component={AdminLogin} />

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('nombres de productos se presentan por palabra en tienda, detalle y cotización', async ({page}) => {
   const original='TIJERA CORTA TUBO PVC 42 mm';
-  const display='Tijera Corta Tubo Pvc 42 Mm';
+  const display='Tijera Corta Tubo PVC 42 mm';
   await page.route('**/rest/v1/products?**',route => {
     const offset=Number(new URL(route.request().url()).searchParams.get('offset') || 0);
     return route.fulfill({json:[{id:'title',code:'BR6798',name:original,brand:'BREMEN',visible:true}].slice(offset)});
@@ -206,7 +206,7 @@ test('compartir copia un enlace limpio y un producto inexistente muestra aviso',
   await page.goto('./productos?q=Bosch&producto=A');
   await page.getByRole('button', { name: 'Compartir producto' }).click();
   await expect(page.getByText('Enlace copiado. Ya podés enviarlo.')).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('http://127.0.0.1:4173/OxigasWeb/productos?producto=A');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('http://127.0.0.1:4173/OxigasWeb/producto/A');
   await page.goto('./productos?producto=DESCONTINUADO');
   await expect(page.getByText('El producto de este enlace ya no está disponible.', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Seguir en la tienda' }).click();

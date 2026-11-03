@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useOffers, type Offer } from '@/hooks/useOffers';
+import { OfferProductPicker } from './OfferProductPicker';
 import { hasPriceDiscount } from '@/lib/format';
 import { formatBrand } from '@/lib/models';
-import { validateImage, uploadOfferImage, discardUploadedImage } from '@/lib/image-upload';
+import { optimizeImage, uploadOfferImage, discardUploadedImage } from '@/lib/image-upload';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Save, X, Eye, EyeOff, ChevronUp, ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
@@ -27,6 +28,10 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
   const [description, setDescription] = useState(initial?.description ?? '');
   const [price, setPrice] = useState<string>(initial?.price != null ? String(initial.price) : '');
   const [originalPrice, setOriginalPrice] = useState<string>(initial?.original_price != null ? String(initial.original_price) : '');
+  const [imageFailed, setImageFailed] = useState(false);
+  const [processingImage, setProcessingImage] = useState(false);
+  const [imageInfo, setImageInfo] = useState('');
+  const imageRequest = useRef(0);
   const [image, setImage] = useState(initial?.image ?? '');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
@@ -42,7 +47,7 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
   const [err, setErr] = useState('');
 
   const handleSave = async () => {
-    if (saving) return;
+    if (saving || processingImage || imageFailed) return;
     if ([price, originalPrice].some(v => v !== '' && (!Number.isFinite(Number(v)) || Number(v) < 0))) { setErr('Los precios deben ser números mayores o iguales a cero.'); return; }
     if (!imageFile && image && !/^https?:\/\//i.test(image.trim())) { setErr('La imagen debe tener una dirección http o https.'); return; }
     if (!name.trim()) { setErr('El nombre es obligatorio.'); return; }
@@ -83,6 +88,10 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
         </div>
 
         <fieldset disabled={saving} className="p-6 space-y-4">
+          <OfferProductPicker onSelect={p => {
+            if ((name.trim() || description.trim() || brand.trim() || image || imageFile) && !window.confirm('¿Usar el nombre, marca, descripción y foto del producto seleccionado? Se reemplazarán esos datos del formulario; los precios se conservan.')) return;
+            ++imageRequest.current; setProcessingImage(false); setImageFailed(false); setProductCode(p.code); setName(p.name); setBrand(p.brand ?? ''); setDescription(p.description ?? ''); setImage(p.images[0] ?? ''); setImageFile(null); setImageInfo(''); setErr('');
+          }} />
           <div>
             <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">
               Nombre <span className="text-red-500">*</span>
@@ -173,14 +182,20 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
 
           <div>
             <label htmlFor="offer-image-file" className="block text-sm font-semibold mb-1.5">Foto de la oferta</label>
-            <input id="offer-image-file" type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm mb-2" onChange={event => {
+            <input id="offer-image-file" type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm mb-2" onChange={async event => {
+              const input = event.currentTarget;
+              const request = ++imageRequest.current;
               const file = event.target.files?.[0];
-              if (!file) return;
-              try { validateImage(file); setImageFile(file); setErr(''); }
-              catch (error) { setErr(error instanceof Error ? error.message : 'Imagen inválida.'); event.target.value = ''; }
+              setImageFailed(false);
+              if (!file) { setProcessingImage(false); return; }
+              setImageFile(null); setImageInfo(''); setProcessingImage(true);
+              try { const optimized = await optimizeImage(file); if (request !== imageRequest.current) return; setImageFile(optimized); setImageInfo(`${Math.ceil(file.size / 1024)} KB → ${Math.ceil(optimized.size / 1024)} KB`); setErr(''); }
+              catch (error) { if (request === imageRequest.current) { setImageFailed(true); setErr(error instanceof Error ? error.message : 'Imagen inválida.'); input.value = ''; } }
+              finally { if (request === imageRequest.current) setProcessingImage(false); }
             }} />
             <p className="text-xs text-[hsl(var(--text-soft))] mb-3">Elegí una foto de tu celular o computadora. JPG, PNG o WebP, hasta 5 MB.</p>
-            {imageFile && <button type="button" onClick={() => { setImageFile(null); const input = document.getElementById('offer-image-file') as HTMLInputElement | null; if (input) input.value = ''; }} className="text-sm text-primary underline mb-3">Descartar foto seleccionada</button>}
+            <p role="status" className="text-xs text-muted-foreground">{processingImage ? 'Optimizando foto...' : imageInfo}</p>
+            {(imageFile || imageFailed) && <button type="button" onClick={() => { ++imageRequest.current; setImageFailed(false); setProcessingImage(false); setErr(''); setImageFile(null); const input = document.getElementById('offer-image-file') as HTMLInputElement | null; if (input) input.value = ''; }} className="text-sm text-primary underline mb-3">Descartar foto seleccionada</button>}
             <label className="block text-sm font-semibold mb-1.5 text-[hsl(var(--text-main))]">O pegá una URL de imagen (opcional)</label>
             <input
               aria-label="URL de imagen (opcional)"
@@ -222,7 +237,7 @@ function OfferForm({ initial, onSave, onCancel }: FormProps) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || processingImage || imageFailed}
             className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Save size={16} />}
@@ -249,6 +264,13 @@ export default function OffersAdmin() {
   };
 
   const handleSave = async (data: Partial<Offer>) => {
+    const code = data.product_code?.trim();
+    if (data.visible && code && offers.some(o => o.id !== editing?.id && o.visible && o.product_code?.trim() === code)) throw new Error('Este producto ya tiene una publicación visible. Editá la existente o desactivala.');
+    if (code) {
+      const { data: found, error } = await supabase.from('products').select('id').eq('code', code).maybeSingle();
+      if (error) throw error;
+      if (!found) throw new Error('El código no existe en el catálogo. Elegí un producto desde el buscador o dejá el código vacío.');
+    }
     if (editing?.id) {
       const { error } = await supabase.from('offers').update({ ...data, price: data.price ?? null, original_price: data.original_price ?? null }).eq('id', editing.id).select('id').single();
       if (error) throw error;

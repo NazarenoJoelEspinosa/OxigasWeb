@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a0YQAAAAASUVORK5CYII=', 'base64');
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEUlEQVR4nGMwTpv5H4QZYAwAScgIxZY+l5IAAAAASUVORK5CYII=', 'base64');
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('sb-fixture-auth-token', JSON.stringify({

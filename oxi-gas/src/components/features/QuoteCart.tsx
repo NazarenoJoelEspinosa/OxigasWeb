@@ -1,4 +1,4 @@
-import { formatProductName } from '@/lib/format';
+import { formatProductName, normalizeQuantity } from '@/lib/format';
 import { useEffect, useMemo, useState } from 'react';
 import { MessageCircle, ShoppingCart, Trash2, X } from 'lucide-react';
 import {
@@ -28,7 +28,7 @@ function buildWhatsAppHref(enrichedItems: readonly EnrichedItem[]): string {
     let line = `• [${product.code}] ${formatProductName(product.name)}`;
     const extras: string[] = [];
     const cantidad = cartItem.fields?.['cantidad']?.trim();
-    if (cantidad) extras.push(`Cantidad: ${cantidad}`);
+    extras.push(`Cantidad: ${normalizeQuantity(cantidad)}`);
     if (cartItem.fields && product.custom_fields) {
       product.custom_fields
         .filter((f) => cartItem.fields![f.key]?.trim())
@@ -102,6 +102,7 @@ export function QuoteCart({ cart, open, onOpenChange }: QuoteCartProps) {
                   key={product.code}
                   product={product}
                   cartItem={cartItem}
+                  onQuantity={value => cart.updateFields(product.code, { cantidad: value })}
                   onRemove={() => cart.remove(product.code)}
                 />
               ))}
@@ -140,10 +141,12 @@ function CartItemRow({
   product,
   cartItem,
   onRemove,
+  onQuantity,
 }: {
   product: Product;
   cartItem: CartItem;
   onRemove: () => void;
+  onQuantity: (value: string) => void;
 }) {
   const fieldSummary = useMemo(() => {
     if (!cartItem.fields) return null;
@@ -168,6 +171,9 @@ function CartItemRow({
           {formatProductName(product.name)}
         </p>
         <p className="mt-1 text-xs text-[hsl(var(--text-soft))]">{product.brand}</p>
+        <label className="mt-2 flex items-center gap-2 text-sm">Cantidad
+          <input type="number" min="1" step="1" aria-label={`Cantidad de ${formatProductName(product.name)} en cotización`} value={cartItem.fields?.cantidad ?? '1'} onChange={event => onQuantity(event.target.value)} onBlur={event => onQuantity(normalizeQuantity(event.target.value))} className="w-20 rounded-lg border border-border bg-background px-2 py-1" />
+        </label>
         {fieldSummary && (
           <p className="mt-1.5 text-xs font-medium text-amber-600 bg-amber-500/10 rounded px-2 py-1 leading-snug">
             {fieldSummary}

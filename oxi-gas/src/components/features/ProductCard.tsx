@@ -1,3 +1,4 @@
+import { Link } from 'wouter';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ZoomIn } from 'lucide-react';
@@ -66,6 +67,7 @@ export function ProductCard({
         )}
       </div>
 
+      <Link href={`/producto/${encodeURIComponent(product.code)}`} className="mx-3 mb-3 text-xs text-primary underline">Ver ficha del producto</Link>
       <ProductOffer offer={product.shop_offer} />
       <div className="px-3 pb-3 flex flex-col gap-2">
         {!isInCart && (

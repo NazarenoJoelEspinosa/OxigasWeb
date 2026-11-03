@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { optimizeImage } from '@/lib/image-upload';
 import { stableCustomFields, errorMessage, formatBrand, type CustomField, type Product } from '@/lib/models';
 import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 import { ClassificationFields } from './ClassificationFields';
@@ -37,20 +38,28 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputFileRef = useRef<HTMLInputElement>(null);
+  const [imageFailed, setImageFailed] = useState(false);
+  const [processingImage, setProcessingImage] = useState(false);
+  const [imageInfo, setImageInfo] = useState('');
+  const imageRequest = useRef(0);
 
-  const handleSeleccionArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeleccionArchivo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const request = ++imageRequest.current;
     const archivo = e.target.files?.[0] ?? null;
-    if (archivo && (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type) || archivo.size > 5 * 1024 * 1024)) {
-      setError('Elegí una imagen JPG, PNG o WebP de hasta 5 MB.');
-      e.target.value = ''; return;
-    }
-    setError(null);
-    setArchivoImagen(archivo);
-    if (archivo) {
+    setError(null); setImageFailed(false);
+    setArchivoImagen(null); setPrevisualizacion(null); setImageInfo('');
+    if (!archivo) { setProcessingImage(false); return; }
+    setProcessingImage(true);
+    try {
+      const optimized = await optimizeImage(archivo);
+      if (request !== imageRequest.current) return;
+      setArchivoImagen(optimized);
+      setImageInfo(`${Math.ceil(archivo.size / 1024)} KB → ${Math.ceil(optimized.size / 1024)} KB`);
       const lector = new FileReader();
-      lector.onload = () => setPrevisualizacion(lector.result as string);
-      lector.readAsDataURL(archivo);
-    } else setPrevisualizacion(null);
+      lector.onload = () => { if (request === imageRequest.current) setPrevisualizacion(lector.result as string); };
+      lector.readAsDataURL(optimized);
+    } catch (error) { if (request === imageRequest.current) { setImageFailed(true); setError(error instanceof Error ? error.message : 'No se pudo preparar la foto.'); } }
+    finally { if (request === imageRequest.current) setProcessingImage(false); }
   };
 
   const subirImagen = async (): Promise<string | null> => {
@@ -78,7 +87,7 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
 
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (guardando) return;
+    if (guardando || processingImage || imageFailed) return;
     setGuardando(true);
     setError(null);
     let uploadedPath: string | null = null;
@@ -252,11 +261,12 @@ export default function ProductForm({ producto, alGuardar, alCancelar }: Product
               <p className="text-sm text-muted-foreground py-2">Clic para seleccionar imagen (JPG, PNG, WEBP)</p>
             )}
           </button>
+          <p role="status" className="text-xs text-muted-foreground">{processingImage ? 'Optimizando foto...' : imageInfo}</p>
           <input ref={inputFileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleSeleccionArchivo} className="hidden" />
         </div>
         {error && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
         <div className="flex gap-3 pt-2">
-          <button type="submit" disabled={guardando || taxonomyStatus !== 'ready' || usingFallback}
+          <button type="submit" disabled={guardando || processingImage || imageFailed || taxonomyStatus !== 'ready' || usingFallback}
             className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {guardando ? 'Guardando...' : (producto?.id ? 'Guardar cambios' : 'Crear producto')}
           </button>

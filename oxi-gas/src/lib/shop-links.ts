@@ -1,7 +1,5 @@
 export function productUrl(code: string): string {
-  const url = new URL(`${import.meta.env.BASE_URL}productos`, window.location.origin);
-  url.searchParams.set('producto', code);
-  return url.href;
+  return new URL(`${import.meta.env.BASE_URL}producto/${encodeURIComponent(code)}`, window.location.origin).href;
 }
 
 export function brandPath(brand: string): string {

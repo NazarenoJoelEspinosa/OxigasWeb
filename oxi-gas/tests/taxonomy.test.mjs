@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
+import { restoreSql } from '../src/lib/backup-format.ts';
 
 test('clasificación jerárquica: migración, permisos, ciclos y lotes atómicos', async t => {
   const db = new PGlite();
@@ -81,6 +82,18 @@ test('clasificación jerárquica: migración, permisos, ciclos y lotes atómicos
       assert.equal(await scalar('select count(*)::int from public.product_category_links where product_id=$1 and not is_primary', [created]), 1);
       await become('anon');
       assert.equal(await scalar('select count(*)::int from public.product_category_links where product_id=$1', [hidden]), 0);
+    });
+    await t.test('respaldo restaura sobre las migraciones reales y conserva permisos y jerarquía', async () => {
+      await db.exec('reset role');
+      const snapshot = {};
+      for (const table of ['category_groups', 'products', 'offers', 'product_category_links']) snapshot[table] = (await db.query(`select * from public.${table}`)).rows;
+      await db.exec("update public.products set name='Modificado'; delete from public.product_category_links; update public.category_groups set parent_id=null;");
+      await db.exec(restoreSql(snapshot));
+      assert.equal(await scalar('select name from public.products where id=$1', [product]), snapshot.products.find(row => row.id === product).name);
+      assert.equal(await scalar('select count(*)::int from public.product_category_links'), snapshot.product_category_links.length);
+      assert.equal(await scalar('select parent_id from public.category_groups where id=$1', [cut]), snapshot.category_groups.find(row => row.id === cut).parent_id);
+      await become('anon');
+      assert.equal(await scalar('select count(*)::int from public.products where visible is false'), 0);
     });
   } finally { await db.close(); }
 });

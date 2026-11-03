@@ -10,6 +10,7 @@ import { useCategoryGroups } from '@/hooks/useCategoryGroups';
 import { belongsToCategory, categoryPath, orderedCategories, primaryCategoryPath } from '@/lib/categories';
 import type { Product } from '@/lib/models';
 import OffersAdmin from '@/components/Admin/OffersAdmin';
+import { CatalogBackup } from '@/components/Admin/CatalogBackup';
 
 type Tab = 'productos' | 'categorias' | 'ofertas';
 
@@ -296,6 +297,7 @@ function DashboardContent() {
             </>
           )}
 
+          <CatalogBackup />
           {/* ── TAB: Categorías ── */}
           {tab === 'categorias' && (!usingFallback && taxonomy.some(cat => cat.id) ? <TaxonomyAdmin categories={taxonomy} products={productos} onChanged={async () => { await reloadTaxonomy(); await cargarProductos(); }} /> : <p role="alert">No se cargaron las categorías. <button onClick={() => void reloadTaxonomy()} className="text-primary underline">Reintentar categorías</button></p>)}
 

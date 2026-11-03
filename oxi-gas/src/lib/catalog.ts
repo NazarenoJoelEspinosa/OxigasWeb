@@ -10,6 +10,16 @@ export async function loadProducts(signal?: AbortSignal, publicOnly = true) {
   });
   return rows.map(row => productSchema.parse(row));
 }
+export async function loadProductByCode(code: string, signal: AbortSignal) {
+  const { data, error } = await supabase.from('products').select('*, product_category_links(category_id,is_primary)').eq('visible', true).eq('code', code).abortSignal(signal).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const product = productSchema.parse(data);
+  const { data: offers, error: offerError } = await supabase.from('offers').select('*').eq('visible', true).eq('product_code', code).order('sort_order').order('id').limit(1).abortSignal(signal);
+  if (offerError && !isMissingTable(offerError)) throw offerError;
+  const offer = offers?.[0] ? offerSchema.parse(offers[0]) : undefined;
+  return offer ? { ...product, shop_offer: { id: offer.id, price: offer.price, original_price: offer.original_price } } : product;
+}
 export async function loadShopProducts(signal: AbortSignal) {
   const [products, offers] = await Promise.all([
     loadProducts(signal),

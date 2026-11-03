@@ -28,6 +28,7 @@ export type QuoteCart = {
    * Si no está, lo agrega con los `fields` provistos (si los hay).
    */
   toggle: (code: string, fields?: CartItemFields) => void;
+  updateFields: (code: string, fields: CartItemFields) => void;
   clear: () => void;
 };
 
@@ -71,6 +72,10 @@ export function useQuoteCart(): QuoteCart {
     );
   }, []);
 
+  const updateFields = useCallback((code: string, fields: CartItemFields) => {
+    setItems(current => current.map(item => item.code === code ? { ...item, fields: { ...item.fields, ...fields } } : item));
+  }, []);
+
   const clear = useCallback(() => setItems([]), []);
 
   return {
@@ -82,5 +87,6 @@ export function useQuoteCart(): QuoteCart {
     remove,
     toggle,
     clear,
+    updateFields,
   };
 }
