@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { MessageCircle, Zap, Tag, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { formatPrecio, formatProductName, hasPriceDiscount } from '@/lib/format';
 import { whatsappUrl } from '@/config/constants';
@@ -12,14 +12,16 @@ export function FeaturedOffers() {
   const { offers, status } = useOffers(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
-    if (reducedMotion || !autoplay || offers.length <= 1) return;
+    if (reducedMotion || !autoplay || hovered || focused || offers.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % offers.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [autoplay, offers.length, reducedMotion]);
+  }, [autoplay, hovered, focused, offers.length, reducedMotion]);
 
   useEffect(() => {
     setCurrentIndex(0);
@@ -37,7 +39,7 @@ export function FeaturedOffers() {
 
   if (status === 'loading' || status === 'no-table' || offers.length === 0) return null;
 
-  const oferta = offers[currentIndex % offers.length];
+  const activeIndex = currentIndex % offers.length;
 
   return (
     <section id="ofertas" className="py-24 bg-gradient-to-b from-[hsl(var(--surface-0))] to-[hsl(var(--surface-1))]">
@@ -63,23 +65,31 @@ export function FeaturedOffers() {
         </motion.div>
 
         {/* Carrusel */}
-        <div className="relative">
-          <AnimatePresence mode="wait">
+        <div className="relative" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+          onFocusCapture={event => setFocused(!event.target.closest('[data-autoplay-control]'))}
+          onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
+          <div className="grid min-w-0" aria-label="Ofertas destacadas">
+            {offers.map((oferta, index) => {
+              const active = index === activeIndex;
+              return (
             <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, x: 60 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -60 }}
-              transition={{ duration: 0.4 }}
-              className="overflow-hidden rounded-3xl bg-[hsl(var(--surface-0))] border border-primary/20 shadow-xl flex flex-col md:flex-row"
+              key={oferta.id}
+              aria-hidden={!active}
+              inert={!active}
+              initial={false}
+              animate={{ opacity: active ? 1 : 0 }}
+              transition={{ duration: reducedMotion ? 0 : 0.3 }}
+              style={{ gridArea: '1 / 1', visibility: active ? 'visible' : 'hidden', pointerEvents: active ? 'auto' : 'none' }}
+              className="min-w-0 overflow-hidden rounded-3xl bg-[hsl(var(--surface-0))] border border-primary/20 shadow-xl flex flex-col md:flex-row"
             >
               {/* Imagen */}
-              <div className="w-full md:w-1/2 h-80 md:h-auto bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative overflow-hidden">
+              <div className="w-full md:w-1/2 h-80 shrink-0 md:h-auto md:min-h-80 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative overflow-hidden">
                 {oferta.image ? (
                   <motion.img
-                    src={oferta.image}
+                    src={active ? oferta.image : undefined}
                     alt={formatProductName(oferta.name)}
-                    className="w-full h-full object-contain p-8"
+                    className="absolute inset-0 w-full h-full object-contain p-8"
+                    loading={active ? 'eager' : 'lazy'}
                     initial={{ scale: 0.97 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.4 }}
@@ -97,10 +107,10 @@ export function FeaturedOffers() {
               </div>
 
               {/* Datos */}
-              <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
+              <div className="min-w-0 w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center">
                 {/* Precios */}
                 {oferta.price != null && (
-                  <div className="flex items-center gap-3 mb-6">
+                  <div className="flex flex-wrap items-center gap-3 mb-6">
                     <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-4 py-2">
                       <Tag className="w-4 h-4 text-primary" />
                       <span className="text-2xl font-extrabold text-primary">
@@ -121,7 +131,7 @@ export function FeaturedOffers() {
                   </p>
                 )}
 
-                <h3 className="text-3xl md:text-4xl font-bold text-[hsl(var(--text-main))] mb-4">
+                <h3 className="break-words text-3xl md:text-4xl font-bold text-[hsl(var(--text-main))] mb-4">
                   {formatProductName(oferta.name)}
                 </h3>
 
@@ -152,7 +162,9 @@ export function FeaturedOffers() {
                 </div>
               </div>
             </motion.div>
-          </AnimatePresence>
+              );
+            })}
+          </div>
 
           {offers.length > 1 && (
             <>
@@ -168,16 +180,20 @@ export function FeaturedOffers() {
               >
                 <ChevronRight size={24} />
               </button>
-              <div className="flex items-center justify-center gap-3 mt-8">
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
                 {offers.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => { setAutoplay(false); setCurrentIndex(index); }}
-                    className={`h-2 rounded-full transition-all duration-300 ${index === currentIndex ? 'bg-primary w-8' : 'bg-primary/30 w-2 hover:bg-primary/50'}`}
+                    className={`h-2 rounded-full transition-all duration-300 ${index === activeIndex ? 'bg-primary w-8' : 'bg-primary/30 w-2 hover:bg-primary/50'}`}
                     aria-label={`Ir a oferta ${index + 1}`}
+                    aria-pressed={index === activeIndex}
                   />
                 ))}
               </div>
+              {!reducedMotion && <button data-autoplay-control type="button" className="mx-auto mt-4 block rounded-lg border border-primary/30 px-4 py-2 text-sm text-primary" onClick={() => setAutoplay(value => !value)}>
+                {autoplay ? 'Pausar cambio automático' : 'Activar cambio automático'}
+              </button>}
             </>
           )}
         </div>
