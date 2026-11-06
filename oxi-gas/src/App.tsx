@@ -19,7 +19,7 @@ function Router() {
     if (!location.startsWith('/producto/')) {
       document.title = location === '/productos' ? 'Tienda | OXI-GAS — Ferretería Industrial' : location === '/ofertas' ? 'Ofertas | OXI-GAS — Ferretería Industrial' : 'OXI-GAS — Ferretería Industrial en Ciudadela';
       const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-      if (description) description.content = location === '/' ? 'Ferretería industrial y gases industriales en Ciudadela. Recambio de garrafas de 10 y 15 kg, tubos de 45 kg y para Clark. Retiro en el local o entrega opcional en Ciudadela, Caseros y Ramos Mejía.' : 'Herramientas, insumos y gases comprimidos en Ciudadela. Consultá productos y disponibilidad por WhatsApp.';
+      if (description) description.content = location === '/' ? 'Ferretería industrial y gases industriales en Ciudadela. Recambio de garrafas de 10 y 15 kg, tubos de 45 kg y para Clark. Retiro en el local o entrega opcional por Ciudadela, Caseros, Ramos Mejía y zonas cercanas. Consultá otros destinos.' : 'Herramientas, insumos y gases comprimidos en Ciudadela. Consultá productos y disponibilidad por WhatsApp.';
       document.getElementById('product-schema')?.remove();
       for (const [key, value] of Object.entries({ 'og:title': document.title, 'og:description': description?.content ?? '', 'og:url': 'https://oxigas.com.ar' + location, 'og:image': 'https://oxigas.com.ar/og-image.jpg', 'og:type': 'website' })) {
         const meta = document.querySelector<HTMLMetaElement>(`meta[property="${key}"]`); if (meta) meta.content = value;

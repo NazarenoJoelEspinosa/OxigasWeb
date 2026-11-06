@@ -89,8 +89,9 @@ export function CompressedGases() {
                   <p className="text-sm text-[hsl(var(--text-soft))]">
                     <strong>Entrega a domicilio opcional:</strong> llevamos el envase lleno a tu puerta y retiramos el vacío. Consultá disponibilidad y coordiná el servicio por WhatsApp.
                   </p>
-                  <p className="text-sm font-semibold text-primary">Reparto únicamente en Ciudadela, Caseros y Ramos Mejía.</p>
-                  <a href={whatsappUrl('Hola OXI-GAS, quiero consultar por recambio de garrafas. Mi envase es de: 10 kg / 15 kg / 45 kg / autoelevador Clark. Quisiera conocer la disponibilidad y el precio para retirar en el local o pedir entrega a domicilio en Ciudadela, Caseros o Ramos Mejía.')}
+                  <p className="text-sm font-semibold text-primary">Reparto por Ciudadela, Caseros, Ramos Mejía y zonas cercanas.</p>
+                  <p className="text-sm text-[hsl(var(--text-soft))]">¿Estás en otra zona? Consultanos: podemos coordinar la entrega según nuestro recorrido y disponibilidad.</p>
+                  <a href={whatsappUrl('Hola OXI-GAS, quiero consultar por recambio de garrafas. Mi envase es de: 10 kg / 15 kg / 45 kg / autoelevador Clark. Quisiera conocer la disponibilidad y el precio para retirar en el local o pedir entrega a domicilio. Estoy por la zona de: ____. ¿Podemos coordinar según su recorrido?')}
                     target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90">
                     Consultar recambio por WhatsApp
                   </a>

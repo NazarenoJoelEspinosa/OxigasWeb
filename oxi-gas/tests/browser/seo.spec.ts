@@ -12,7 +12,9 @@ test('garrafas mejora el bloque existente sin quitar gases industriales y enlaza
   await expect(gases.getByText('¿Buscás recarga de gas', { exact: false })).toContainText('mediante recambio');
   await expect(gases.locator('p').filter({ hasText: 'Retiro en el local:' })).toContainText('te sale más barato');
   await expect(gases.locator('p').filter({ hasText: 'Entrega a domicilio opcional:' })).toContainText('llevamos el envase lleno a tu puerta y retiramos el vacío');
-  await expect(gases.getByText('Reparto únicamente en Ciudadela, Caseros y Ramos Mejía.', { exact: true })).toBeVisible();
+  await expect(gases.getByText('Reparto por Ciudadela, Caseros, Ramos Mejía y zonas cercanas.', { exact: true })).toBeVisible();
+  await expect(gases.getByText('¿Estás en otra zona?', { exact: false })).toContainText('según nuestro recorrido y disponibilidad');
+  await expect(gases).not.toContainText('únicamente');
   await expect(gases.getByRole('heading', { name: 'Gases comprimidos', exact: true })).toHaveCount(1);
   await expect(gases.getByRole('link', { name: 'Consultar recambio por WhatsApp' })).toHaveAttribute('href', /wa\.me\/5491134446666\?text=.*recambio/);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Ferretería industrial.*gases industriales.*garrafas/);
