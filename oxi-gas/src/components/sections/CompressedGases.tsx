@@ -6,7 +6,7 @@ const base = import.meta.env.BASE_URL;
 
 const gases = [
   {
-    title: 'Recambio de garrafas a domicilio',
+    title: 'Recambio de garrafas en Ciudadela',
     description:
       'Recambio de garrafas de 10 y 15 kg, tubos de 45 kg y garrafas de gas para autoelevadores Clark. Consultá disponibilidad y las opciones para tu envase.',
     image: `${base}images/gases/ypf-gas.png`,
@@ -81,11 +81,16 @@ export function CompressedGases() {
                 </p>
                 {index === 0 && <div className="mt-4 space-y-4">
                   <p className="text-sm text-[hsl(var(--text-soft))]">
-                    ¿Buscás recarga de gas o de garrafas? Trabajamos mediante recambio: llevamos el envase lleno a tu puerta y retiramos el vacío. Coordiná la entrega y confirmá disponibilidad por WhatsApp.
+                    ¿Buscás recarga de gas o de garrafas? Trabajamos mediante recambio: entregás el envase vacío y recibís otro lleno. Podés retirarlo en nuestro local o pedir la entrega a domicilio.
+                  </p>
+                  <p className="text-sm text-[hsl(var(--text-soft))]">
+                    <strong>Retiro en el local:</strong> si venís a buscar la garrafa, te sale más barato. Estamos en Acosta 1906, Ciudadela.
+                  </p>
+                  <p className="text-sm text-[hsl(var(--text-soft))]">
+                    <strong>Entrega a domicilio opcional:</strong> llevamos el envase lleno a tu puerta y retiramos el vacío. Consultá disponibilidad y coordiná el servicio por WhatsApp.
                   </p>
                   <p className="text-sm font-semibold text-primary">Reparto únicamente en Ciudadela, Caseros y Ramos Mejía.</p>
-                  <p className="text-sm text-[hsl(var(--text-soft))]">Estamos en Acosta 1906, Ciudadela.</p>
-                  <a href={whatsappUrl('Hola OXI-GAS, quiero consultar por recambio de garrafas a domicilio en Ciudadela, Caseros o Ramos Mejía. Mi envase es de: 10 kg / 15 kg / 45 kg / autoelevador Clark. ¿Tienen disponibilidad y podemos coordinar la entrega?')}
+                  <a href={whatsappUrl('Hola OXI-GAS, quiero consultar por recambio de garrafas. Mi envase es de: 10 kg / 15 kg / 45 kg / autoelevador Clark. Quisiera conocer la disponibilidad y el precio para retirar en el local o pedir entrega a domicilio en Ciudadela, Caseros o Ramos Mejía.')}
                     target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90">
                     Consultar recambio por WhatsApp
                   </a>
