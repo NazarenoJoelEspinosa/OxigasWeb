@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion';
+import { Link } from 'wouter';
+import { whatsappUrl } from '@/config/constants';
 
 const base = import.meta.env.BASE_URL;
 
 const gases = [
   {
-    title: 'Gas envasado',
+    title: 'Recambio de garrafas en Ciudadela',
     description:
-      'Contamos con opciones de gas envasado para distintas necesidades, con atención personalizada y asesoramiento para tu compra.',
+      'Recambio de garrafas de 10 y 15 kg, tubos de 45 kg y garrafas de gas para autoelevadores Clark. Consultá disponibilidad y las opciones para tu envase.',
     image: `${base}images/gases/ypf-gas.png`,
   },
   {
@@ -44,7 +46,7 @@ export function CompressedGases() {
           </h2>
 
           <p className="text-lg md:text-xl text-[hsl(var(--text-soft))] max-w-3xl mx-auto">
-            Ofrecemos gases para uso industrial, soldadura y aplicaciones técnicas con asesoramiento profesional.
+            Gases industriales para soldadura y trabajos técnicos, y recambio de gas envasado en Ciudadela, con atención y asesoramiento personalizado.
           </p>
         </motion.div>
 
@@ -63,7 +65,8 @@ export function CompressedGases() {
               <div className="h-72 bg-white flex items-center justify-center p-6">
                 <img
                   src={gas.image}
-                  alt={gas.title}
+                  alt={index === 0 ? 'Gas envasado: garrafas para recambio en OXI-GAS, Ciudadela' : gas.title}
+                  loading="lazy"
                   className="max-h-full max-w-full object-contain"
                 />
               </div>
@@ -76,6 +79,17 @@ export function CompressedGases() {
                 <p className="text-[hsl(var(--text-soft))]">
                   {gas.description}
                 </p>
+                {index === 0 && <div className="mt-4 space-y-4">
+                  <p className="text-sm text-[hsl(var(--text-soft))]">
+                    ¿Buscás recarga de gas o de garrafas? Trabajamos mediante recambio: entregás el envase vacío y retirás otro lleno, según disponibilidad. Consultanos antes de acercarte.
+                  </p>
+                  <p className="text-sm text-[hsl(var(--text-soft))]">Estamos en Acosta 1906, Ciudadela.</p>
+                  <a href={whatsappUrl('Hola OXI-GAS, quiero consultar por recambio de garrafas. Mi envase es de: 10 kg / 15 kg / 45 kg / autoelevador Clark. ¿Tienen disponibilidad?')}
+                    target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90">
+                    Consultar recambio por WhatsApp
+                  </a>
+                  <Link href="/productos?categoria=Gases" className="block text-sm text-primary underline">Ver productos de gases en la tienda</Link>
+                </div>}
               </div>
 
             </motion.div>
