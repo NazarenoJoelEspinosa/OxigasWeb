@@ -130,13 +130,20 @@ export function CategoryNavigation({ options, categories, value, onChange }: {
             {children(id).map(child => {
               const expandable = children(child.id!).length > 0;
               const expanded = path[depth + 1] === child.id;
-              return <button type="button" key={child.id} aria-expanded={expandable ? expanded : undefined}
+              return <div key={child.id}
                 onMouseEnter={() => { if (!window.matchMedia('(min-width: 640px) and (hover: hover)').matches) return; cancelClose(); setPath(previous => [...previous.slice(0, depth + 1), ...(expandable ? [child.id!] : [])]); }}
                 onFocus={() => { cancelClose(); }}
-                onClick={() => expandable ? setPath([...path.slice(0, depth + 1), child.id!]) : choose(nodeValue(child.id!))}
-                className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3 text-sm font-semibold hover:bg-primary focus-visible:bg-primary focus-visible:outline-none ${expanded ? 'bg-primary' : ''}`}>
-                {child.label}{expandable && <ChevronRight size={15} aria-hidden="true" />}
-              </button>;
+                className={`w-full flex items-stretch text-sm font-semibold hover:bg-primary ${expanded ? 'bg-primary' : ''}`}>
+                <button type="button" onClick={() => choose(nodeValue(child.id!))}
+                  className="min-w-0 flex-1 text-left px-4 py-3 focus-visible:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-200">
+                  {child.label}
+                </button>
+                {expandable && <button type="button" aria-label={`Mostrar subcategorías de ${child.label}`} aria-expanded={expanded}
+                  onClick={() => setPath([...path.slice(0, depth + 1), child.id!])}
+                  className="shrink-0 min-h-11 w-11 inline-flex items-center justify-center border-l border-white/15 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-200">
+                  <ChevronRight size={16} aria-hidden="true" />
+                </button>}
+              </div>;
             })}
           </div>;
         })}

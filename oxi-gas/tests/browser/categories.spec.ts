@@ -32,6 +32,26 @@ async function setup(page: import('@playwright/test').Page, admin = false) {
   return {categories,products};
 }
 
+for (const width of [390, 1440]) test(`el nombre de una subcategoría muestra sus productos y descendientes a ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 950 });
+  const { products } = await setup(page);
+  products[2].category = 'Discos';
+  products[2].product_category_links = [{ category_id: id(2), is_primary: true }];
+  await page.goto('./productos');
+  const nav = page.getByRole('navigation', { name: 'Categorías de la tienda' });
+  await nav.getByRole('button', { name: 'Insumos', exact: true }).click();
+  await page.getByRole('region', { name: 'Subcategorías de Insumos' }).getByRole('button', { name: 'Discos', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Subcategorías de Insumos' })).toHaveCount(0);
+  for (const name of ['Producto 00', 'Producto 01', 'Producto 02']) await expect(page.getByRole('button', { name: `Ver ${name}`, exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver Producto 03', exact: true })).toHaveCount(0);
+  await nav.getByRole('button', { name: 'Insumos', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Subcategorías de Insumos' });
+  await panel.getByRole('button', { name: 'Mostrar subcategorías de Discos', exact: true }).click();
+  await panel.getByRole('button', { name: 'Corte', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Ver Producto 00', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver Producto 01', exact: true })).toHaveCount(0);
+});
+
 for (const width of [390, 1440]) test(`flechas recorren categorías sin cambiar filtros ni mover la página a ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 950 });
   const { categories, products } = await setup(page);
@@ -77,7 +97,7 @@ test('tienda muestra descendientes y productos relacionados sin duplicarlos', as
   await expect(page.getByRole('button',{name:'Ver Producto 00',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Ver Producto 01',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Ver Producto 02',exact:true})).toHaveCount(0);
-  await page.getByRole('button',{name:'Discos',exact:true}).click();
+  await page.getByRole('button',{name:'Mostrar subcategorías de Discos',exact:true}).click();
   await page.getByRole('button',{name:'Corte',exact:true}).click();
   await expect(page.getByRole('button',{name:'Ver Producto 00',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Ver Producto 01',exact:true})).toHaveCount(0);
@@ -122,12 +142,12 @@ test('celular recorre un nivel por vez sin lista larga ni desborde', async ({ pa
   const nav=page.getByRole('navigation',{name:'Categorías de la tienda'});
   await nav.getByRole('button',{name:'Insumos',exact:true}).click();
   const panel=page.getByRole('region',{name:'Subcategorías de Insumos',exact:true});
-  await panel.getByRole('button',{name:'Discos',exact:true}).click();
+  await panel.getByRole('button',{name:'Mostrar subcategorías de Discos',exact:true}).click();
   await expect(panel.getByRole('button',{name:'Corte',exact:true})).toBeVisible();
   await expect(panel.getByRole('button',{name:'Discos',exact:true})).toBeHidden();
   await panel.getByRole('button',{name:'← Volver',exact:true}).click();
   await expect(panel.getByRole('button',{name:'Discos',exact:true})).toBeVisible();
-  await panel.getByRole('button',{name:'Discos',exact:true}).click();
+  await panel.getByRole('button',{name:'Mostrar subcategorías de Discos',exact:true}).click();
   await panel.getByRole('button',{name:'Corte',exact:true}).click();
   await expect(panel).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Ver Producto 00',exact:true})).toBeVisible();
