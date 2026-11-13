@@ -32,6 +32,43 @@ async function setup(page: import('@playwright/test').Page, admin = false) {
   return {categories,products};
 }
 
+for (const width of [390, 1440]) test(`flechas recorren categorías sin cambiar filtros ni mover la página a ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 950 });
+  const { categories, products } = await setup(page);
+  for (let i = 0; i < 16; i++) {
+    categories.push({ id: id(200 + i), label: `Categoría de herramientas ${i + 1}`, parent_id: null, sort_order: 10 + i, slugs: [], icon: '📦' });
+    products.push({ id: id(300 + i), code: `EXTRA${i}`, name: `Artículo ${i}`, brand: 'Bosch', visible: true, category: `Categoría de herramientas ${i + 1}`, images: [], custom_fields: [], product_category_links: [{ category_id: id(200 + i), is_primary: true }] });
+  }
+  await page.goto('./productos');
+  const nav = page.getByRole('navigation', { name: 'Categorías de la tienda' });
+  const strip = nav.locator('#shop-category-strip');
+  const previous = nav.getByRole('button', { name: 'Ver categorías anteriores', exact: true });
+  const next = nav.getByRole('button', { name: 'Ver categorías siguientes', exact: true });
+  await expect(previous).toBeDisabled(); await expect(next).toBeEnabled();
+  expect(await strip.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
+  const scrollY = await page.evaluate(() => window.scrollY);
+  await next.click();
+  await expect.poll(() => strip.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  await expect(previous).toBeEnabled();
+  await expect(nav.getByRole('button', { name: 'Todos los productos', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+  await strip.evaluate(el => el.scrollTo({ left: el.scrollWidth, behavior: 'instant' }));
+  await expect(next).toBeDisabled();
+  await previous.click(); await expect(next).toBeEnabled();
+  await strip.evaluate(el => el.scrollTo({ left: 0, behavior: 'instant' }));
+  await expect(previous).toBeDisabled();
+  await nav.getByRole('button', { name: 'Insumos', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Subcategorías de Insumos', exact: true })).toBeVisible();
+  await next.click();
+  await expect(page.getByRole('region', { name: 'Subcategorías de Insumos', exact: true })).toHaveCount(0);
+  await strip.evaluate(el => el.scrollTo({ left: 0, behavior: 'instant' }));
+  await expect(previous).toBeDisabled();
+  await next.focus(); await page.keyboard.press('Enter');
+  await expect.poll(() => strip.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await nav.screenshot({ path: `test-results/categorias-flechas-${width}.png`, animations: 'disabled' });
+});
+
 test('tienda muestra descendientes y productos relacionados sin duplicarlos', async ({ page }) => {
   await setup(page);
   await page.goto('./productos');
