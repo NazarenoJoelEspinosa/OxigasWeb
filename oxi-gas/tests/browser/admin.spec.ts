@@ -21,6 +21,72 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+async function returnToTab(page: import('@playwright/test').Page) {
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+}
+
+test('volver a la pestaña conserva el producto, sus campos y la foto mientras revalida permisos', async ({ page }) => {
+  let calls = 0, hold = false;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/auth/v1/user', async route => {
+    calls++;
+    if (hold) await gate;
+    await route.fulfill({ json: { id: '11111111-1111-4111-8111-111111111111', aud: 'authenticated', role: 'authenticated' } });
+  });
+  await page.goto('./admin/dashboard');
+  await page.getByRole('button', { name: '+ Nuevo producto', exact: true }).click();
+  const name = page.getByPlaceholder('Ej: Tornillo Madera FIXER', { exact: true });
+  await name.fill('Artículo todavía sin guardar');
+  await name.evaluate(element => element.setAttribute('data-original-form', 'true'));
+  await page.getByLabel('Marca del producto').fill('Bosch');
+  await page.getByRole('button', { name: '+ Agregar campo', exact: true }).click();
+  await page.getByPlaceholder('Ej: Diámetro', { exact: true }).fill('Medida pendiente');
+  await page.locator('input[type="file"]').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png });
+  await expect(page.getByRole('img', { name: 'Previsualización', exact: true })).toBeVisible();
+  const before = calls; hold = true;
+  await returnToTab(page);
+  await expect.poll(() => calls).toBeGreaterThan(before);
+  try {
+    await expect(name).toHaveValue('Artículo todavía sin guardar');
+    await expect(name).toHaveAttribute('data-original-form', 'true');
+    await expect(page.getByPlaceholder('Ej: Diámetro', { exact: true })).toHaveValue('Medida pendiente');
+    await expect(page.getByRole('img', { name: 'Previsualización', exact: true })).toBeVisible();
+  } finally { hold = false; release(); }
+  await returnToTab(page);
+  await expect(name).toHaveValue('Artículo todavía sin guardar');
+  await expect(name).toHaveAttribute('data-original-form', 'true');
+});
+
+test('volver a la pestaña conserva también el formulario de ofertas', async ({ page }) => {
+  let checks = 0;
+  await page.route('**/rest/v1/admin_users?**', route => { checks++; return route.fulfill({ json: { role: 'admin' } }); });
+  await page.goto('./admin/dashboard');
+  await page.getByRole('button', { name: 'Ofertas', exact: true }).click();
+  await page.getByRole('button', { name: 'Nueva oferta', exact: true }).click();
+  await page.getByLabel('Nombre de la oferta').fill('Oferta sin guardar');
+  await page.getByLabel('Precio actual', { exact: true }).fill('1234');
+  const before = checks; await returnToTab(page);
+  await expect.poll(() => checks).toBeGreaterThan(before);
+  await expect(page.getByLabel('Nombre de la oferta')).toHaveValue('Oferta sin guardar');
+  await expect(page.getByLabel('Precio actual', { exact: true })).toHaveValue('1234');
+});
+
+test('revalidar la sesión revoca el acceso si desaparece el permiso de administrador', async ({ page }) => {
+  let allowed = true;
+  await page.route('**/rest/v1/admin_users?**', route => route.fulfill({ json: allowed ? { role: 'admin' } : null }));
+  await page.goto('./admin/dashboard');
+  await expect(page.getByRole('button', { name: '+ Nuevo producto', exact: true })).toBeVisible();
+  allowed = false; await returnToTab(page);
+  await expect(page).toHaveURL(/\/admin\/login$/);
+  await expect(page.getByRole('button', { name: '+ Nuevo producto', exact: true })).toHaveCount(0);
+});
+
 test('administración pagina, filtra, cambia visibilidad y se adapta al celular', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./admin/dashboard');
