@@ -54,7 +54,6 @@ export default function Producto() {
       </div>
       <div className="space-y-4"><p className="text-primary">{product.category}</p><h1 className="text-3xl font-bold">{formatProductName(product.name)}</h1><p>{product.brand}</p><p className="text-sm text-muted-foreground">Código: {product.code}</p><p className="whitespace-pre-line">{product.description}</p>
         <ProductOffer offer={product.shop_offer} />
-        <p className="text-sm text-muted-foreground">Consultá disponibilidad y condiciones antes de confirmar tu pedido.</p>
         {product.custom_fields.map(f => <label key={f.key} className="block text-sm">{f.label}<input className="block w-full rounded-lg border border-border bg-background p-2 mt-1" value={fields[f.key] ?? ''} placeholder={f.placeholder} onChange={e => setFields(current => ({ ...current, [f.key]: e.target.value }))} /></label>)}
         <label className="block">Cantidad<input type="number" min="1" step="1" aria-label="Cantidad del producto" value={quantity} onChange={e => setQuantity(e.target.value)} onBlur={() => setQuantity(normalizeQuantity(quantity))} className="ml-3 w-24 border border-border rounded-lg p-2 bg-background" /></label>
         <button className="block rounded-lg bg-primary text-white px-5 py-3" onClick={() => { cart.updateFields(product.code, { ...fields, cantidad: normalizeQuantity(quantity) }); cart.add(product.code, { ...fields, cantidad: normalizeQuantity(quantity) }); cart.setOpen(true); }}>{cart.has(product.code) ? 'Actualizar mi cotización' : 'Agregar a cotización'}</button>
