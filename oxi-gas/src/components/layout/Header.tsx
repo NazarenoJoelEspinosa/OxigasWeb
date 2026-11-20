@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { Menu, X, ShoppingCart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { SECTION_NAVIGATION_EVENT } from '@/lib/sectionNavigation';
 import { useCart } from '@/context/CartContext';
 import { QuoteCart } from '@/components/features/QuoteCart';
 const oxiGasLogo = `${import.meta.env.BASE_URL}images/logo_oxigas_white.svg`;
@@ -26,7 +27,7 @@ function useHashNavigate() {
     const id = hash.replace('#', '');
     const target = document.getElementById(id);
     if (target) {
-      target.scrollIntoView({ behavior: 'smooth' });
+      window.dispatchEvent(new CustomEvent(SECTION_NAVIGATION_EVENT, { detail: id }));
       return;
     }
     setLocation('/#' + encodeURIComponent(id));
@@ -55,7 +56,7 @@ export function Header() {
             : 'bg-[hsl(var(--h-bg))] border-transparent py-4'
         )}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center gap-2 sm:gap-4">
+        <div data-header-bar className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center gap-2 sm:gap-4">
           <Link href="/" aria-label="OXI-GAS - Inicio" className="shrink-0">
             <img
               src={oxiGasLogo}
