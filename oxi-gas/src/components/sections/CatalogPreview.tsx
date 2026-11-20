@@ -85,7 +85,7 @@ export function CatalogPreview() {
                 <ArrowRight className="w-5 h-5" />
               </Link>
               <Link
-                href="/productos"
+                href="/productos?filtros=marcas"
                 className="inline-flex items-center justify-center gap-2 border border-[hsl(var(--surface-3))] hover:border-primary text-[hsl(var(--text-main))] hover:text-primary font-semibold text-base py-3.5 px-7 rounded-xl transition-colors"
               >
                 Filtrar por marca

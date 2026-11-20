@@ -27,10 +27,10 @@ export default function Home() {
     <main className="min-h-screen bg-background relative">
       <Header />
       <Hero />
+      <Services />
       <StatsBar />
       <FeaturedOffers />
       <CatalogPreview />
-      <Services />
       <CompressedGases />
       <FeaturedMachines />
       <Brands />

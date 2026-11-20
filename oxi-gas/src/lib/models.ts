@@ -4,6 +4,10 @@ export type CustomField = z.infer<typeof customFieldSchema>;
 const optionalText = z.string().nullable().optional().transform(v => v ?? undefined);
 export function formatBrand(value: string): string {
   const text = value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
+  const key = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  if (['buzoalgfriz', 'remeralg', 'comun', 'sinmarca', 'hd440'].includes(key)) return '';
+  const brands: Record<string, string> = { ignco: 'Ingco', ingco: 'Ingco', lusqstoff: 'Lusqtoff', lusqtoff: 'Lusqtoff', bremenn: 'Bremen', bremen: 'Bremen', bd: 'Black & Decker', blackdecker: 'Black & Decker', blackanddecker: 'Black & Decker', wd40: 'WD-40', w80: 'Siloc', siloc: 'Siloc', att: 'ATT', ypf: 'YPF', '3m': '3M' };
+  if (brands[key]) return brands[key];
   return text.charAt(0).toLocaleUpperCase('es') + text.slice(1);
 }
 const optionalBrand = optionalText.transform(value => value === undefined ? undefined : formatBrand(value) || undefined);

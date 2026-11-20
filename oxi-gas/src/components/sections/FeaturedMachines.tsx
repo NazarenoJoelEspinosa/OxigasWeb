@@ -1,97 +1,48 @@
-import { motion } from 'framer-motion';
-import { MessageCircle } from 'lucide-react';
-import { whatsappUrl } from '@/config/constants';
+import { useEffect, useState } from 'react';
+import { Link } from 'wouter';
+import { ArrowRight } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { formatProductName } from '@/lib/format';
+import { productSchema, type Product } from '@/lib/models';
 
-const machines = [
-  {
-    name: 'Amoladoras',
-    brand: 'Bosch',
-    image: `${import.meta.env.BASE_URL}images/maquinas/bosch-1.png`,
-  },
-  {
-    name: 'Taladros y atornilladores',
-    brand: 'DeWalt',
-    image: `${import.meta.env.BASE_URL}images/maquinas/dewalt-1.png`,
-  },
-  {
-    name: 'Herramientas eléctricas',
-    brand: 'Stanley',
-    image: `${import.meta.env.BASE_URL}images/maquinas/stanley-1.png`,
-  },
-];
+const featuredCodes = ['06013960H1', 'TPL710-8', 'STARMIG-180I'];
 
 export function FeaturedMachines() {
+  const [machines, setMachines] = useState<Product[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const { data, error } = await supabase.from('products').select('id,code,name,brand,images')
+          .eq('visible', true).in('code', featuredCodes).abortSignal(controller.signal);
+        if (error || controller.signal.aborted) return;
+        const products = (data ?? []).map(p => productSchema.parse(p));
+        setMachines(featuredCodes.flatMap(code => products.filter(p => p.code === code && p.images.length > 0)));
+      } catch { /* El acceso general a la tienda sigue disponible. */ }
+    }
+    void load();
+    return () => controller.abort();
+  }, []);
   return (
-    <section id="maquinas" className="py-24 bg-[hsl(var(--surface-1))]">
+    <section id="maquinas" className="py-14 sm:py-20 bg-[hsl(var(--surface-1))]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-14"
-        >
-          <p className="text-sm font-bold uppercase tracking-[0.25em] text-primary mb-3">
-            MÁQUINAS
-          </p>
-
-          <h2 className="text-4xl md:text-5xl font-extrabold text-[hsl(var(--text-main))] mb-4">
-            Máquinas destacadas
-          </h2>
-
-          <p className="text-lg md:text-xl text-[hsl(var(--text-soft))] max-w-3xl mx-auto">
-            Una selección de máquinas y herramientas de marcas reconocidas para trabajos exigentes, profesionales y de uso general.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-
-          {machines.map((machine, index) => {
-            return (
-              <motion.a
-                key={machine.name}
-                href={whatsappUrl(`Hola OXI-GAS, quiero consultar por ${machine.name} de ${machine.brand}.`)}
-                target="_blank"
-                rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1, duration: 0.4 }}
-                className="group overflow-hidden rounded-3xl bg-[hsl(var(--surface-0))] border border-[hsl(var(--surface-3))] shadow-xl hover:-translate-y-2 transition-all duration-300"
-              >
-
-                <div className="h-72 bg-white flex items-center justify-center">
-                  <img
-                    src={machine.image}
-                    alt={machine.name}
-                    className="max-h-full max-w-full object-contain p-6"
-                  />
-                </div>
-
-                <div className="p-6">
-                  <p className="text-sm uppercase tracking-[0.2em] text-primary font-bold mb-2">
-                    {machine.brand}
-                  </p>
-
-                  <h3 className="text-2xl font-bold text-[hsl(var(--text-main))] mb-3">
-                    {machine.name}
-                  </h3>
-
-                  <p className="text-[hsl(var(--text-soft))] mb-5">
-                    Consultá disponibilidad, precio y opciones de esta línea directamente por WhatsApp.
-                  </p>
-
-                  <div className="inline-flex items-center gap-2 rounded-full bg-[#25d366] text-white px-4 py-2 font-semibold">
-                    <MessageCircle size={16} />
-                    Consultar por WhatsApp
-                  </div>
-                </div>
-
-              </motion.a>
-            );
-          })}
-
+        <div className="flex flex-wrap items-end justify-between gap-5 mb-8">
+          <div><p className="text-sm font-bold uppercase tracking-[0.2em] text-primary mb-3">MÁQUINAS</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold">Máquinas destacadas</h2>
+            <p className="mt-3 text-[hsl(var(--text-soft))]">Conocé los modelos del catálogo y agregalos a tu cotización.</p>
+          </div>
+          <Link href="/productos?categoria=Herramientas%20El%C3%A9ctricas" className="inline-flex items-center gap-2 text-primary font-semibold py-3">Ver herramientas eléctricas<ArrowRight size={18} /></Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {machines.map(machine => <Link key={machine.code} href={`/producto/${encodeURIComponent(machine.code)}`}
+            className="group flex flex-col rounded-2xl border border-[hsl(var(--surface-3))] bg-[hsl(var(--surface-0))] overflow-hidden hover:border-primary transition-colors">
+            <div className="h-56 sm:h-64 bg-white"><img src={machine.images[0]} alt={formatProductName(machine.name)} loading="lazy" className="w-full h-full object-contain p-6" /></div>
+            <div className="p-5 flex flex-1 flex-col">
+              {machine.brand && <p className="text-sm font-semibold text-primary mb-2">{machine.brand}</p>}
+              <h3 className="text-xl font-bold mb-5">{formatProductName(machine.name)}</h3>
+              <span className="mt-auto inline-flex items-center gap-2 text-primary font-semibold">Ver producto<ArrowRight size={18} /></span>
+            </div>
+          </Link>)}
         </div>
       </div>
     </section>

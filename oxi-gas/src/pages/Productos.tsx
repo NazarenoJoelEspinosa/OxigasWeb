@@ -34,7 +34,7 @@ const SIDEBAR_PARENTS: { label: string; icon: string; childLabels: string[] }[] 
 
 const EXACT_PREFIX = '__exact__';
 const brandKey = (value: string) => {
-  const key = normalize(value).replace(/[^a-z0-9]/g, '');
+  const key = normalize(formatBrand(value)).replace(/[^a-z0-9]/g, '');
   const aliases: Record<string, string> = { bd: 'blackdecker', blackanddecker: 'blackdecker', bremenn: 'bremen', lusqstoff: 'lusqtoff' };
   return aliases[key] ?? key;
 };
@@ -61,7 +61,7 @@ export default function Productos() {
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState<string>(() => new URLSearchParams(search).get('categoria') ?? ALL);
   const [sortBy, setSortBy] = useState<SortOption>('category-asc');
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(() => new URLSearchParams(search).get('filtros') === 'marcas');
   const filtersButton = useRef<HTMLButtonElement>(null);
 
   // Sincronizar con parámetros de URL cuando el usuario navega desde el header

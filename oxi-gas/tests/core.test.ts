@@ -23,7 +23,7 @@ test('marcas: primera letra mayúscula y resto minúsculas en productos y oferta
     assert.equal(productSchema.parse({id:'a',code:'A',name:'Producto',brand:value}).brand,'Lusqtoff');
     assert.equal(offerSchema.parse({id:'o',name:'Oferta',brand:value,visible:true,sort_order:0}).brand,'Lusqtoff');
   }
-  assert.equal(formatBrand(' BLACK   & DECKER '),'Black & decker');
+  assert.equal(formatBrand(' BLACK   & DECKER '),'Black & Decker');
   assert.equal(formatBrand('ÁRBOL'),'Árbol');
   assert.equal(formatBrand('   '),'');
   for (const brand of [null,undefined,'']) assert.equal(productSchema.parse({id:'a',code:'A',name:'Producto',brand}).brand,undefined);
@@ -70,4 +70,23 @@ test('rutas profundas conservan filtros y rechazan escapes fuera del sitio', () 
   assert.equal(restoredPath('/OxigasWeb/', '/productos?q=Bosch#detalle'), '/OxigasWeb/productos?q=Bosch#detalle');
   assert.equal(restoredPath('/', '/productos'), '/productos');
   for (const value of ['//otro.example', '/\\otro.example', '/../admin', '/\n/otro.example']) assert.equal(restoredPath('/OxigasWeb/', value), null);
+});
+
+
+test('marcas: errores históricos se unifican y códigos internos no son marcas', () => {
+  assert.equal(formatBrand('IGNCO'), 'Ingco');
+  assert.equal(formatBrand('B&D'), 'Black & Decker');
+  assert.equal(formatBrand('LUSQSTOFF'), 'Lusqtoff');
+  assert.equal(formatBrand('W80'), 'Siloc');
+  for (const value of ['BUZOALGFRIZ', 'REMERALG', 'Comun']) {
+    assert.equal(productSchema.parse({id:'a',code:'A',name:'Producto',brand:value}).brand, undefined);
+  }
+});
+
+test('nombres: abreviaturas legibles conservan medidas y modelos', () => {
+  assert.equal(formatProductName('JUEGO DESTORNILLADORES 6P'), 'Juego De Destornilladores 6 Piezas');
+  assert.equal(formatProductName('AMOLAD/ANG 5" BOSCH GWS 9-125 900W'), 'Amoladora Angular 5" Bosch GWS 9-125 900W');
+  assert.equal(formatProductName('AMOLADORA ANGULAR 900W 115mm + H. ELECTRICA'), 'Amoladora Angular 900W 115mm');
+  assert.equal(formatProductName('CAMISA C/CAPUCHA S/RUEDAS'), 'Camisa Con Capucha Sin Ruedas');
+  assert.equal(formatProductName('Gas YH222 680 GR'), 'Gas YH222 680 g');
 });

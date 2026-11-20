@@ -52,7 +52,7 @@ export function ProductCard({
         {product.category && (
           <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">{product.category}</p>
         )}
-        <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug line-clamp-2">{formatProductName(product.name)}</p>
+        <p className="text-sm font-semibold text-[hsl(var(--text-main))] leading-snug break-words sm:line-clamp-2">{formatProductName(product.name)}</p>
         {product.brand && <p className="text-xs text-[hsl(var(--text-soft))] mt-1">{product.brand}</p>}
 
         {!product.shop_offer && product.price != null && (
@@ -63,7 +63,7 @@ export function ProductCard({
 
         <p className="text-xs text-[hsl(var(--text-soft))]/60 mt-1 font-mono">{product.code}</p>
         {product.description && (
-          <p className="text-[11px] text-[hsl(var(--text-soft))] mt-1 line-clamp-1">{product.description}</p>
+          <p className="hidden sm:block text-[11px] text-[hsl(var(--text-soft))] mt-1 line-clamp-1">{product.description}</p>
         )}
       </div>
 
@@ -105,7 +105,7 @@ export function ProductCard({
             e.stopPropagation();
             cart.toggle(product.code, { ...customValues, cantidad: normalizeQuantity(qty) });
           }}
-          className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
+          className={`w-full min-h-11 px-2 py-2 rounded-xl text-xs font-semibold transition-all duration-200 border ${
             isInCart
               ? 'bg-primary text-white border-primary'
               : 'bg-transparent text-[hsl(var(--text-main))] border-[hsl(var(--surface-3))] hover:border-primary hover:text-primary'

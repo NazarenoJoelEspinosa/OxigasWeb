@@ -105,7 +105,7 @@ export function Header() {
             <button
               type="button"
               onClick={() => cart.setOpen(true)}
-              className="relative text-[hsl(var(--h-text))] p-1.5 hover:bg-[hsl(var(--h-surface))] rounded-lg transition-colors border border-[hsl(var(--h-border))]"
+              className="relative inline-flex min-h-11 min-w-11 items-center justify-center gap-1 text-[hsl(var(--h-text))] px-2 hover:bg-[hsl(var(--h-surface))] rounded-lg transition-colors border border-[hsl(var(--h-border))]"
               aria-label="Mi cotización"
             >
               <ShoppingCart size={20} />

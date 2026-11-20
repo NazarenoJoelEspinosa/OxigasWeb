@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { MessageCircle, ShieldCheck, Truck, Wrench, MapPin } from 'lucide-react';
 import { WHATSAPP_URL } from '@/config/constants';
 import { OpenStatus } from '../ui/OpenStatus';
+import { Link } from 'wouter';
 
 const trustBadges = [
   { icon: ShieldCheck, label: 'Marcas líderes' },
@@ -20,7 +21,7 @@ export function Hero() {
   return (
     <section
       id="inicio"
-      className="relative min-h-[78vh] sm:min-h-[88vh] flex items-center pt-32 sm:pt-36 pb-16 sm:pb-20 overflow-hidden bg-[hsl(var(--surface-0))]"
+      className="relative flex items-center pt-28 sm:pt-36 pb-10 sm:pb-14 overflow-hidden bg-[hsl(var(--surface-0))]"
     >
       <div aria-hidden="true" className="absolute -top-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-primary/10 blur-3xl" />
       <div aria-hidden="true" className="absolute -bottom-32 right-[-10rem] h-[26rem] w-[26rem] rounded-full bg-primary/5 blur-3xl" />
@@ -38,7 +39,7 @@ export function Hero() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="inline-flex items-center gap-2 mb-6 bg-primary/10 text-primary border border-primary/30 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-[0.18em]"
+              className="inline-flex items-center gap-2 mb-4 bg-primary/10 text-primary border border-primary/30 px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-[0.12em]"
             >
               <motion.span
                 aria-hidden="true"
@@ -51,21 +52,26 @@ export function Hero() {
               <div className="mb-4">
                 <OpenStatus />
               </div>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-[hsl(var(--text-main))] tracking-tight mb-5 sm:mb-6 leading-[1.05]">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[hsl(var(--text-main))] tracking-tight mb-4 leading-[1.08]">
               Gases Comprimidos y{' '}
               <span className="text-primary">Herramientas</span> Industriales
             </h1>
 
-            <p className="text-lg sm:text-xl md:text-2xl text-[hsl(var(--text-soft))] mb-6 sm:mb-8 font-medium max-w-2xl leading-relaxed">
+            <p className="text-base sm:text-xl text-[hsl(var(--text-soft))] mb-5 font-medium max-w-2xl leading-relaxed">
               Oxígeno · Acetileno · Argón · CO₂ | Equipos profesionales para soldadura y construcción
             </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <Link href="/productos" className="inline-flex justify-center items-center bg-primary hover:bg-primary/90 text-white font-bold text-base py-3 px-7 rounded-xl transition-colors">Ver productos</Link>
+              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="inline-flex justify-center items-center gap-2 bg-[#16863e] hover:bg-[#116e32] text-white font-semibold text-base py-3 px-7 rounded-xl transition-colors"><MessageCircle className="w-5 h-5" />Escribir por WhatsApp</a>
+            </div>
 
             {/* Zona de cobertura */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
-              className="flex items-start gap-3 mb-8 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3"
+              className="flex items-start gap-3 mb-5 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3"
             >
               <MapPin className="h-5 w-5 text-primary mt-0.5 shrink-0" aria-hidden="true" />
               <div>
@@ -80,29 +86,6 @@ export function Hero() {
                 </p>
               </div>
             </motion.div>
-
-            <div className="flex flex-col sm:flex-row gap-4 mb-10">
-              <motion.a
-                href="#contacto"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex justify-center items-center bg-primary hover:bg-primary/90 text-white font-bold text-lg py-4 px-8 rounded-xl shadow-lg shadow-primary/20 transition-all duration-300"
-              >
-                Hacer una consulta
-              </motion.a>
-
-              <motion.a
-                href={WHATSAPP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex justify-center items-center gap-3 bg-[#25d366] hover:bg-[#25d366]/90 text-white font-bold text-lg py-4 px-8 rounded-xl shadow-lg shadow-[#25d366]/20 transition-all duration-300"
-              >
-                <MessageCircle className="w-6 h-6" />
-                Escribir por WhatsApp
-              </motion.a>
-            </div>
 
             <ul className="flex flex-wrap items-center gap-x-6 gap-y-3">
               {trustBadges.map(({ icon: Icon, label }) => (
@@ -165,4 +148,3 @@ export function Hero() {
     </section>
   );
 }
-

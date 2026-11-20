@@ -4,7 +4,7 @@ import { useCart } from '@/context/CartContext';
 
 export function WhatsAppButton() {
   const cart = useCart();
-  const className = 'fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-white shadow-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary';
+  const className = 'hidden sm:inline-flex fixed bottom-6 right-6 z-40 items-center gap-2 rounded-2xl px-4 py-3 text-white shadow-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary';
   if (cart.count > 0) return (
     <button type="button" onClick={() => cart.setOpen(true)}
       className={className + ' bg-primary hover:bg-primary/90'}
